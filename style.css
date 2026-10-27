@@ -83,4 +83,8 @@ header,main{position:relative}
 .save-help{font-size:12px;line-height:1.7;color:var(--text-muted);margin:0 0 10px}.save-help span{font-size:10px}
 .inapp-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:16px 0 0;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--panel);font-size:12px;line-height:1.6;color:var(--text-main)}.inapp-banner p{margin:0}.inapp-banner span{display:block;font-size:10px;color:var(--text-muted)}.inapp-banner .text-button{white-space:nowrap;font-size:11px}
 .gallery-loading{margin:10px 0 0;text-align:center}
-@media(min-width:1100px){.paper{max-width:420px}}
+/* Larger strip on wide screens, but never taller than the window so the sticky preview stays whole. */
+@media(min-width:1100px){.paper{max-width:min(420px,calc((100vh - 230px)*.77))}}
+@media(min-width:761px) and (max-height:760px){.preview-panel{padding-top:18px;padding-bottom:18px}.panel-top{margin-bottom:16px}.hint{margin-top:18px}}
+.character-sources small{text-wrap:balance}
+@media(pointer:coarse){.text-button{min-height:40px;padding:10px 8px}.creator-link{display:inline-block;padding:6px 0}}
