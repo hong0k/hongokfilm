@@ -319,7 +319,7 @@ function drawSilhouette(c,b,side,label,spot){
     const guide=photoGuide();c.save();c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=guide.fill;c.strokeStyle=guide.line;
     c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.setLineDash([]);
     c.textAlign='center';c.textBaseline='middle';c.fillStyle=guide.ink;c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',x,y+r*.06);
-    c.font=`bold ${Math.round(Math.max(20,r*.5))}px sans-serif`;c.fillText(label,x,y+r*1.6);c.restore();c.textBaseline='alphabetic';return;
+    c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,r/.55*.36)))}px sans-serif`;c.fillText(label,x,y+r*1.6);c.restore();c.textBaseline='alphabetic';return;
   }
   const character=side==='right';
   const g=silhouetteGeometry(b,spot?b.x+spot.cx:b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27)),spot?.scale??1);
@@ -331,12 +331,12 @@ function drawSilhouette(c,b,side,label,spot){
   c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
   c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
   c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
-  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;c.fillText(label,cx,spot?.peek?archTop+half*.55:b.y+b.h-Math.max(28,r*.65));
+  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;c.fillText(label,cx,spot?.labelY!==undefined?b.y+spot.labelY:b.y+b.h-Math.max(28,r*.65));
   c.restore();c.textBaseline='alphabetic';
 }
 // Every character pose sits differently, so the "내 사진" figure is placed where the drawn
-// character leaves room: the pose is rendered into a small mask and the largest figure that
-// fits without touching it is chosen (nearest to the usual left spot). Results are cached.
+// character leaves room: the pose is rendered into a small mask and the figure (always the same
+// size) goes where its head is clear, nearest the usual spot. Results are cached.
 const silhouetteSpots=new Map();
 function photoSilhouetteSpot(b,index){
   if(mode!=='together')return null;
@@ -355,42 +355,32 @@ function photoSilhouetteSpot(b,index){
   // Prefer the side opposite the character's mass, so the gap to the character matches every slot.
   const massX=solid.length?solid.reduce((sum,[px])=>sum+px,0)/solid.length:b.w;
   const preferred=b.w*(massX<b.w/2?(frame==='miniroom'?.75:.73):(frame==='miniroom'?.25:.27)),pad=12;
-  // peek=true only checks the head and top of the body: the figure stands behind the
-  // character, whose artwork covers its lower half, and the label moves up under the head.
-  const search=(scales,peek)=>{
-    let best=null;
-    for(const scale of scales){
-      const half=silhouetteGeometry(local,0,scale).half;
-      for(let cx=half+10;cx<=b.w-half-10;cx+=6){
-        const g=silhouetteGeometry(local,cx,scale),bodyY=g.archTop+g.half*.9,limit=peek?g.archTop+g.half*1.1:Infinity;let hits=0;
-        for(const [px,py] of solid){
-          if(py>limit)continue;
-          const head=Math.hypot(px-cx,py-g.headY)<g.r+pad;
-          const body=py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1);
-          if(head||body){hits++;if(best&&hits>=best.hits)break;}
-        }
-        const distance=Math.abs(cx-preferred);
-        if(!best||hits<best.hits||(hits===best.hits&&distance<best.distance))best={cx,scale,hits,distance,peek};
-      }
-      if(best?.hits===0)return best;
-    }
-    return best;
-  };
-  let best=search([1,.9,.8,.7,.6],false);
-  if(best.hits>0){const peek=search([1,.9,.8,.7,.6],true);if(peek.hits===0)best=peek;}
-  if(best.hits>0){
-    // No standing room at all: fall back to a small badge (dashed head + label) in the
-    // emptiest spot, so it never sits on top of the artwork.
-    const r=Math.min(b.w,b.h)*.075,labelW=r*2.4;let badge=null;
-    for(let y=r+12;y<=b.h-r*2.2-12;y+=8)for(let x=Math.max(r,labelW/2)+12;x<=b.w-Math.max(r,labelW/2)-12;x+=8){
+  // The figure keeps one size in every slot. Its head must stay clear of the character; its body
+  // may stand behind the artwork (the character is drawn on top), and the label moves to free space.
+  const g0=silhouetteGeometry(local,0,1),half=g0.half,R=g0.r;
+  const fontSize=Math.round(Math.max(20,Math.min(R*.5,half*.36))),labelW=fontSize*3.4;
+  const clear=(x0,y0,x1,y1)=>!solid.some(([px,py])=>px>x0&&px<x1&&py>y0&&py<y1);
+  let best=null;
+  for(let cx=half+10;cx<=b.w-half-10;cx+=6){
+    const g=silhouetteGeometry(local,cx,1),bodyY=g.archTop+g.half*.9;
+    if(solid.some(([px,py])=>Math.hypot(px-cx,py-g.headY)<g.r+pad))continue;
+    let body=0;
+    for(const [px,py] of solid)if(py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1))body++;
+    const score=body*40+Math.abs(cx-preferred);
+    if(!best||score<best.score)best={cx,scale:1,peek:body>0,score};
+  }
+  if(best){
+    const g=silhouetteGeometry(local,best.cx,1),x0=best.cx-labelW/2-6,x1=best.cx+labelW/2+6;
+    const options=[b.h-Math.max(28,R*.65),g.archTop+g.half*.55,g.headY-g.r-fontSize];
+    best.labelY=options.find(y=>clear(x0,y-fontSize,x1,y+fontSize))??options[0];
+  }else{
+    // No room for a head anywhere: the same-size head with its label sits in the emptiest spot.
+    for(let y=R+12;y<=b.h-R*2.2-12;y+=8)for(let x=Math.max(R,labelW/2)+12;x<=b.w-Math.max(R,labelW/2)-12;x+=8){
       let hits=0;
-      for(const [px,py] of solid){
-        if(Math.hypot(px-x,py-y)<r+pad||(Math.abs(px-x)<labelW/2+pad&&py>y+r&&py<y+r*2.2+pad)){hits++;if(badge&&hits>=badge.hits)break;}
-      }
+      for(const [px,py] of solid){if(Math.hypot(px-x,py-y)<R+pad||(Math.abs(px-x)<labelW/2+pad&&py>y+R&&py<y+R*2.2+pad)){hits++;if(best&&hits>=best.hits)break;}}
       const distance=Math.hypot(x-preferred,y-b.h*.45);
-      if(!badge||hits<badge.hits||(hits===badge.hits&&distance<badge.distance))badge={badge:true,cx:x,cy:y,r,hits,distance};
+      if(!best||hits<best.hits||(hits===best.hits&&distance<best.distance))best={badge:true,cx:x,cy:y,r:R,hits,distance};
     }
-    if(badge&&badge.hits<best.hits)best=badge;
   }
   silhouetteSpots.set(key,best);return best;
 }
@@ -695,7 +685,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.4');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.5');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
