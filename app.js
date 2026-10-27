@@ -277,24 +277,38 @@ function select(index) {
 }
 
 function buildSlots(){
-$('slots').replaceChildren();
-boxes.forEach((b,i)=>{
-  const el=document.createElement('button');el.className='slot';el.style.cssText=`left:${b.x/12}%;top:${b.y/15.6}%;width:${b.w/12}%;height:${b.h/15.6}%`;el.setAttribute('aria-label',`${i+1}번째 사진 불러오기 또는 선택 및 위치 조정`);el.textContent=`${i+1}번째 사진`;el.onclick=()=>{select(i);if(!photos[i]&&!busy){$('edit-layer').value='photo';select(i);$('upload').click();}};$('slots').append(el);
-  const pointers=new Map();let gesture;
+  const container=$('slots');container.replaceChildren();
+  const pointers=new Map();let gesture,suppressClickUntil=0;
   const baseline=()=>{
     const item=editable(),points=[...pointers.values()];
     if(!item||!points.length){gesture=null;return;}
     const a=points[0],b=points[1]??a;
     gesture={item,x:(a.x+b.x)/2,y:(a.y+b.y)/2,distance:Math.hypot(a.x-b.x,a.y-b.y),px:item.x,py:item.y,zoom:item.zoom,rotation:item.rotation??0,angle:Math.atan2(b.y-a.y,b.x-a.x)};
   };
-  el.onpointerdown=(e)=>{select(i);if(!editable())return;e.preventDefault();el.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});baseline();};
-  el.onpointermove=(e)=>{
+  boxes.forEach((b,i)=>{
+    const el=document.createElement('button');el.className='slot';el.dataset.slot=String(i);
+    el.style.cssText=`left:${b.x/12}%;top:${b.y/15.6}%;width:${b.w/12}%;height:${b.h/15.6}%`;
+    el.setAttribute('aria-label',`${i+1}번째 사진 불러오기 또는 선택 및 위치 조정`);el.textContent=`${i+1}번째 사진`;
+    el.onclick=()=>{if(Date.now()<suppressClickUntil)return;select(i);if(!photos[i]&&!busy){$('edit-layer').value='photo';select(i);$('upload').click();}};
+    el.onkeydown=(e)=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;select(i);if(!editable())return;e.preventDefault();editable().x+=e.key==='ArrowLeft'?-15:e.key==='ArrowRight'?15:0;editable().y+=e.key==='ArrowUp'?-15:e.key==='ArrowDown'?15:0;draw();};
+    container.append(el);
+  });
+  container.onpointerdown=(e)=>{
+    if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;select(Number(slot.dataset.slot));}
+    if(!editable())return;
+    e.preventDefault();container.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pointers.size>1)suppressClickUntil=Date.now()+500;
+    baseline();
+  };
+  container.onpointermove=(e)=>{
     if(!pointers.has(e.pointerId)||!gesture||editable()!==gesture.item)return;
     e.preventDefault();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const points=[...pointers.values()],a=points[0],b=points[1]??a;
     const scale=1200/canvas.getBoundingClientRect().width,item=gesture.item;
-    item.x=gesture.px+((a.x+b.x)/2-gesture.x)*scale;
-    item.y=gesture.py+((a.y+b.y)/2-gesture.y)*scale;
+    const dx=(a.x+b.x)/2-gesture.x,dy=(a.y+b.y)/2-gesture.y;
+    if(Math.hypot(dx,dy)>3||points.length>1)suppressClickUntil=Date.now()+500;
+    item.x=gesture.px+dx*scale;item.y=gesture.py+dy*scale;
     if(points.length>1&&gesture.distance>0){
       item.zoom=Math.max(.3,Math.min(3,gesture.zoom*Math.hypot(a.x-b.x,a.y-b.y)/gesture.distance));
       const angle=Math.atan2(b.y-a.y,b.x-a.x)-gesture.angle;
@@ -303,11 +317,10 @@ boxes.forEach((b,i)=>{
     }
     draw();
   };
-  const release=(e)=>{pointers.delete(e.pointerId);baseline();};
-  el.onpointerup=el.onpointercancel=el.onlostpointercapture=release;
-  el.onkeydown=(e)=>{if(!editable()||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();editable().x+=e.key==='ArrowLeft'?-15:e.key==='ArrowRight'?15:0;editable().y+=e.key==='ArrowUp'?-15:e.key==='ArrowDown'?15:0;draw();};
-});
+  const release=(e)=>{if(!pointers.delete(e.pointerId))return;baseline();};
+  container.onpointerup=container.onpointercancel=container.onlostpointercapture=release;
 }
+
 buildSlots();
 function setPhoto(image,index){photos[index]={image,x:0,y:0,zoom:1,mirror:false,rotation:0};}
 $('upload').onchange=async(e)=>{
@@ -445,7 +458,7 @@ $('repeat-character').onclick=()=>{
 async function init(){
   try{await document.fonts.load('29px "Hongok Hand"');}catch{}
   try{
-    const response=await fetch('./assets/frames.json?v=20261027.2');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261027.3');if(!response.ok)throw new Error('config');config=await response.json();
     const paths=[...config.characters.flatMap(c=>[...c.poses,...Object.values(c.pose_sets??{}).flat()]),...Object.values(config.overlays),...Object.values(config.decoration_sources??{}),...Object.values(config.backgrounds??{}).flatMap(value=>value&&typeof value==='object'?Object.values(value):[value])].filter(Boolean);
     await Promise.all([...new Set(paths)].map(async path=>{try{assets.set(path,await imageFrom(new URL(path,document.baseURI).href));}catch{status('일부 프레임을 불러오지 못해 임시 디자인을 표시해요.');}}));
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
