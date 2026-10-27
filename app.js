@@ -125,7 +125,8 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
     const scale=wide?Math.min(b.w*.62/sw,b.h*.96/sh):basicScales[index];
     const w=sw*scale,h=sh*scale;
     c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
-    const x=left?b.x:b.x+b.w-w;
+    // Basic frame pose 4 sits a little further right to leave room beside it.
+    const x=left?b.x:b.x+b.w-w+(!wide&&index===3?70:0);
     const transparentInset=!wide&&index===0?198*scale:0;
     // Pose 4's artwork ends in a slanted cut (bottom 773–805px). Hide that cut below the slot edge
     // while keeping the same size, so no empty strip shows under the torso.
@@ -313,14 +314,13 @@ function silhouetteGeometry(b,cx,scale=1){
   const archTop=b.y+b.h-b.h*(wide?.5:.42)*scale,r=half*.55,headY=archTop-r*1.35;
   return {cx,half,archTop,r,headY};
 }
+function drawSilhouetteLabel(c,b,label,spot){
+  // Only when the character covers the whole figure: plain label on top, same look as elsewhere.
+  const g=silhouetteGeometry(b,b.x+spot.cx,1),size=Math.round(Math.max(20,Math.min(g.r*.5,g.half*.36))),y=b.y+b.h-Math.max(28,g.r*.65),dark=frame==='halloween';
+  c.save();c.font=`bold ${size}px sans-serif`;c.textAlign='center';c.textBaseline='middle';
+  c.shadowColor=dark?'#000000cc':'#ffffffe6';c.shadowBlur=6;c.fillStyle=photoGuide().ink;c.fillText(label,g.cx,y);c.fillText(label,g.cx,y);c.restore();c.textBaseline='alphabetic';
+}
 function drawSilhouette(c,b,side,label,spot){
-  if(spot?.badge){
-    const x=b.x+spot.cx,y=b.y+spot.cy,r=spot.r;
-    const guide=photoGuide();c.save();c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=guide.fill;c.strokeStyle=guide.line;
-    c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.setLineDash([]);
-    c.textAlign='center';c.textBaseline='middle';c.fillStyle=guide.ink;c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',x,y+r*.06);
-    c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,r/.55*.36)))}px sans-serif`;c.fillText(label,x,y+r*1.6);c.restore();c.textBaseline='alphabetic';return;
-  }
   const character=side==='right';
   const g=silhouetteGeometry(b,spot?b.x+spot.cx:b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27)),spot?.scale??1);
   const {cx,half,archTop,r,headY}=g;
@@ -331,7 +331,7 @@ function drawSilhouette(c,b,side,label,spot){
   c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
   c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
   c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
-  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;c.fillText(label,cx,spot?.labelY!==undefined?b.y+spot.labelY:b.y+b.h-Math.max(28,r*.65));
+  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;if(!spot?.labelOver)c.fillText(label,cx,b.y+(spot?.labelY??b.h-Math.max(28,r*.65)));
   c.restore();c.textBaseline='alphabetic';
 }
 // Every character pose sits differently, so the "내 사진" figure is placed where the drawn
@@ -361,7 +361,21 @@ function photoSilhouetteSpot(b,index){
   const fontSize=Math.round(Math.max(20,Math.min(R*.5,half*.36))),labelW=fontSize*3.4;
   const clear=(x0,y0,x1,y1)=>!solid.some(([px,py])=>px>x0&&px<x1&&py>y0&&py<y1);
   let best=null;
-  for(let cx=half+10;cx<=b.w-half-10;cx+=6){
+  // Centre the figure in the empty space beside the character (measured at head-and-shoulder
+  // height), so the gap to the slot edge and to the character is even in every slot.
+  const gy=silhouetteGeometry(local,0,1),bandTop=gy.headY-gy.r,bandBottom=gy.archTop+gy.half*.6,free=new Uint8Array(Math.ceil(b.w)+1).fill(1);
+  for(const [px,py] of solid)if(py>=bandTop&&py<=bandBottom)for(let x=Math.max(0,Math.floor(px-5-pad));x<=Math.min(b.w,Math.ceil(px+5+pad));x++)free[x]=0;
+  const runs=[];for(let x=0,start=-1;x<=b.w;x++){if(free[x]&&start<0)start=x;if((!free[x]||x===Math.floor(b.w))&&start>=0){runs.push([start,x]);start=-1;}}
+  runs.sort((a,c)=>(c[1]-c[0])-(a[1]-a[0])||Math.abs((a[0]+a[1])/2-preferred)-Math.abs((c[0]+c[1])/2-preferred));
+  const run=runs[0];
+  if(run&&run[1]-run[0]>=2*R+2*pad){
+    const cx=Math.max(half+10,Math.min(b.w-half-10,(run[0]+run[1])/2)),g=silhouetteGeometry(local,cx,1),bodyY=g.archTop+g.half*.9;
+    if(!solid.some(([px,py])=>Math.hypot(px-cx,py-g.headY)<g.r+pad)){
+      const body=solid.some(([px,py])=>py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1));
+      best={cx,scale:1,peek:body};
+    }
+  }
+  if(!best)for(let cx=half+10;cx<=b.w-half-10;cx+=6){
     const g=silhouetteGeometry(local,cx,1),bodyY=g.archTop+g.half*.9;
     if(solid.some(([px,py])=>Math.hypot(px-cx,py-g.headY)<g.r+pad))continue;
     let body=0;
@@ -369,19 +383,21 @@ function photoSilhouetteSpot(b,index){
     const score=body*40+Math.abs(cx-preferred);
     if(!best||score<best.score)best={cx,scale:1,peek:body>0,score};
   }
-  if(best){
-    const g=silhouetteGeometry(local,best.cx,1),x0=best.cx-labelW/2-6,x1=best.cx+labelW/2+6;
-    const options=[b.h-Math.max(28,R*.65),g.archTop+g.half*.55,g.headY-g.r-fontSize];
-    best.labelY=options.find(y=>clear(x0,y-fontSize,x1,y+fontSize))??options[0];
-  }else{
-    // No room for a head anywhere: the same-size head with its label sits in the emptiest spot.
-    for(let y=R+12;y<=b.h-R*2.2-12;y+=8)for(let x=Math.max(R,labelW/2)+12;x<=b.w-Math.max(R,labelW/2)-12;x+=8){
-      let hits=0;
-      for(const [px,py] of solid){if(Math.hypot(px-x,py-y)<R+pad||(Math.abs(px-x)<labelW/2+pad&&py>y+R&&py<y+R*2.2+pad)){hits++;if(best&&hits>=best.hits)break;}}
-      const distance=Math.hypot(x-preferred,y-b.h*.45);
-      if(!best||hits<best.hits||(hits===best.hits&&distance<best.distance))best={badge:true,cx:x,cy:y,r:R,hits,distance};
+  if(!best){
+    // No spot keeps the whole head clear: take the one that hides the least of it, still full size.
+    for(let cx=half+10;cx<=b.w-half-10;cx+=6){
+      const g=silhouetteGeometry(local,cx,1);let head=0;
+      for(const [px,py] of solid)if(Math.hypot(px-cx,py-g.headY)<g.r+pad)head++;
+      const score=head*40+Math.abs(cx-preferred);
+      if(!best||score<best.score)best={cx,scale:1,peek:true,score};
     }
   }
+  // The label always sits at the bottom of the figure; where the character covers that spot it is
+  // drawn on top of the character with a soft backing so it stays readable.
+  // Label goes at the bottom of the figure, or on its chest when the character covers the bottom.
+  const lx0=best.cx-labelW/2-6,lx1=best.cx+labelW/2+6,gl=silhouetteGeometry(local,best.cx,1);
+  best.labelY=[b.h-Math.max(28,R*.65),gl.archTop+gl.half*.55].find(y=>clear(lx0,y-fontSize,lx1,y+fontSize));
+  best.labelOver=best.labelY===undefined;
   silhouetteSpots.set(key,best);return best;
 }
 function draw(forExport=false) {
@@ -426,8 +442,9 @@ function draw(forExport=false) {
   boxes.forEach((b,i) => {
     if(frame==='halloween')drawBackdrop(ctx,b,halloweenSlot[halloweenTheme]);
     else {ctx.fillStyle=frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);}
+    const photoSpot=!photos[i]&&mode==='together'?photoSilhouetteSpot(b,i):null;
     if(photos[i]) drawPhoto(photos[i],b,i,spec);
-    else if(mode==='together')drawSilhouette(ctx,b,'left','내 사진',photoSilhouetteSpot(b,i));
+    else if(mode==='together')drawSilhouette(ctx,b,'left','내 사진',photoSpot);
     else {ctx.fillStyle='#84758b';ctx.font='26px sans-serif';ctx.fillText(`＋ ${i+1}번째 사진`,b.x+b.w/2,b.y+b.h/2);}
     if(mode==='together') {
       ctx.save();
@@ -447,6 +464,7 @@ function draw(forExport=false) {
       }
       ctx.restore();
     }
+    if(photoSpot?.labelOver)drawSilhouetteLabel(ctx,b,'내 사진',photoSpot);
     if(softness>0){softenBox(ctx,b,softness);ctx.save();ctx.globalAlpha=softness*.10;ctx.fillStyle='#fff9f3';ctx.fillRect(b.x,b.y,b.w,b.h);ctx.restore();}
     if(frame==='halloween') {ctx.fillStyle='#ffffff55';ctx.font='26px sans-serif';ctx.fillText(['✦','☾','☾','✦'][i],b.x+b.w-24,b.y+35);}
   });
@@ -685,7 +703,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.5');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.6');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
@@ -756,7 +774,12 @@ function renderGallery(){
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
     if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
-    else c.drawImage(image,box.x+(box.w-w)/2,box.y,w,h);
+    else{
+      // Collection-only horizontal focus so each face sits in the middle of its slot.
+      const focus=galleryCharacter==='han'?({2:.33}[i]):undefined;
+      const x=focus===undefined?(box.w-w)/2:Math.max(box.w-w,Math.min(0,box.w/2-w*focus));
+      c.drawImage(image,box.x+x,box.y,w,h);
+    }
     c.restore();
   });
   c.textAlign='center';c.fillStyle=basic?basicPalettes[style].muted:({lime:'#c8bacd',pumpkin:'#d5b6a3',pink:'#cdbcc3'}[style]);
