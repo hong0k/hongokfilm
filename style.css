@@ -92,5 +92,9 @@ header,main{position:relative}
 /* Guide emphasis: button names in the accent colour, key actions in bold, essential notes highlighted. */
 .language-guide b{color:var(--text-main);font-weight:700}
 .language-guide strong{color:var(--accent);font-weight:700}
-.language-guide mark{background:#fff0c6;color:#3b3225;padding:1px 3px;border-radius:3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-.language-guide mark strong{color:#3b3225;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.language-guide mark{background:var(--guide-mark);color:var(--guide-mark-ink);padding:1px 3px;border-radius:3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.language-guide mark strong{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+/* Highlight colour per theme: a soft tint of each theme's accent, cream for Cyworld. */
+:root{--guide-mark:color-mix(in srgb,var(--accent) 20%,transparent);--guide-mark-ink:var(--text-main)}
+:root[data-theme="simple"]{--guide-mark:#ececec;--guide-mark-ink:#171717}
+:root[data-theme="cyworld"]{--guide-mark:#fff0c6;--guide-mark-ink:#51484b}
