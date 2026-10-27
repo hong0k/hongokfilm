@@ -12,8 +12,13 @@ const assets = new Map(), assetLoads = new Map(), failedAssets = new Set();
 const status = (message) => { $('status').textContent = message; };
 function imageFrom(url) { return new Promise((resolve,reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('이미지를 불러오지 못했어요.')); image.src = url; }); }
 function cover(image,w,h) { return Math.max(w/image.naturalWidth,h/image.naturalHeight); }
-let drawRequest=0;
-function scheduleDraw(){if(drawRequest)return;drawRequest=requestAnimationFrame(()=>{drawRequest=0;draw();});}
+// Redraws are batched to one per frame; the timer covers browsers that pause animation frames.
+let drawRequest=false,drawFrame=0,drawTimer=0;
+function scheduleDraw(){
+  if(drawRequest)return;drawRequest=true;
+  const run=()=>{if(!drawRequest)return;drawRequest=false;cancelAnimationFrame(drawFrame);clearTimeout(drawTimer);draw();};
+  drawFrame=requestAnimationFrame(run);drawTimer=setTimeout(run,100);
+}
 // Images load only when a frame or character needs them, so the first visit stays light.
 function requestAsset(path){
   if(!path)return Promise.resolve(null);
