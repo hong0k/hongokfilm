@@ -88,3 +88,10 @@ header,main{position:relative}
 @media(min-width:761px) and (max-height:760px){.preview-panel{padding-top:18px;padding-bottom:18px}.panel-top{margin-bottom:16px}.hint{margin-top:18px}}
 .character-sources small{text-wrap:balance}
 @media(pointer:coarse){.text-button{min-height:40px;padding:10px 8px}.creator-link{display:inline-block;padding:6px 0}}
+
+/* Guide emphasis: button names in the accent colour, key actions in bold, essential notes highlighted. */
+.language-guide b{color:var(--text-main);font-weight:700}
+.language-guide strong{color:var(--accent);font-weight:700}
+.language-guide mark{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--text-main);padding:1px 3px;border-radius:3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.language-guide mark strong{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+:root:not([data-theme=simple]):not([data-theme=cyworld]) .language-guide mark{background:color-mix(in srgb,var(--accent) 22%,transparent)}
