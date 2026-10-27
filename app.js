@@ -133,10 +133,13 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
     c.drawImage(image,sx,sy,sw,visible,x-transparentInset,b.y+b.h-vh,w,vh);c.restore();return;
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='han'){
-    const scale=Math.min(b.w*.5/image.naturalWidth,b.h*.96/image.naturalHeight);
-    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
-    c.save();c.beginPath();c.rect(b.x+b.w/2,b.y,b.w/2,b.h);c.clip();
-    c.drawImage(image,b.x+b.w*.75-w/2,b.y+b.h-h,w,h);c.restore();return;
+    // Wide frame: black-hair Han on the left of the top slot, silver Han on the right of the bottom slot.
+    // Both are upper-body close-ups: only the head-to-waist band of each artwork is drawn, filling the
+    // slot height, so the artwork's own bottom cut never shows inside the slot.
+    const left=index===0,band=left?1120:980,sh=Math.min(band,image.naturalHeight);
+    const scale=b.h*.98/sh,w=image.naturalWidth*scale,h=sh*scale;
+    c.save();c.beginPath();c.rect(left?b.x:b.x+b.w/2,b.y,b.w/2,b.h);c.clip();
+    c.drawImage(image,0,0,image.naturalWidth,sh,b.x+b.w*(left?.25:.75)-w/2,b.y+b.h-h,w,h);c.restore();return;
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='min'){
     const left=index===1;
@@ -343,7 +346,7 @@ function photoSilhouetteSpot(b,index){
   const k=.1,mw=Math.ceil(b.w*k),mh=Math.ceil(b.h*k),m=document.createElement('canvas');m.width=mw;m.height=mh;
   const mc=m.getContext('2d',{willReadFrequently:true});mc.scale(k,k);
   const local={x:0,y:0,w:b.w,h:b.h};
-  if(frame==='miniroom'&&!['min','kim'].includes(config?.characters[character]?.id)){mc.beginPath();mc.rect(b.w/2,0,b.w/2,b.h);mc.clip();}
+  if(frame==='miniroom'&&!['min','kim','han'].includes(config?.characters[character]?.id)){mc.beginPath();mc.rect(b.w/2,0,b.w/2,b.h);mc.clip();}
   try{if(custom)drawCustomPose(pose,local,mc);else drawRegisteredPose(pose,local,mc,index);}catch{return null;}
   const alpha=mc.getImageData(0,0,mw,mh).data,solid=[];
   for(let y=0;y<mh;y++)for(let x=0;x<mw;x++)if(alpha[(y*mw+x)*4+3]>40)solid.push([(x+.5)/k,(y+.5)/k]);
@@ -434,7 +437,7 @@ function draw(forExport=false) {
     else {ctx.fillStyle='#84758b';ctx.font='26px sans-serif';ctx.fillText(`＋ ${i+1}번째 사진`,b.x+b.w/2,b.y+b.h/2);}
     if(mode==='together') {
       ctx.save();
-      if(frame==='miniroom'&&!['min','kim'].includes(config?.characters[character]?.id)){ctx.beginPath();ctx.rect(b.x+b.w/2,b.y,b.w/2,b.h);ctx.clip();}
+      if(frame==='miniroom'&&!['min','kim','han'].includes(config?.characters[character]?.id)){ctx.beginPath();ctx.rect(b.x+b.w/2,b.y,b.w/2,b.h);ctx.clip();}
       const posePath=registeredPosePath(i),pose=registeredPose(i);
       if(character==='custom'){
         if(customPoses[i])drawCustomPose(customPoses[i],b,ctx,spec);
@@ -562,7 +565,7 @@ function updateLayoutCopy(){
   const two=boxes.length===2;
   $('character-upload-note').innerHTML=`투명 PNG를 추천해요. 일반 이미지는 배경까지 표시됩니다.<br>1장을 올리면 ${two?'두':'네'} 칸에 적용하고, 여러 장은 순서대로 넣어요.`;
   $('photo-step-title').textContent=two?'두 장의 순간을 채워주세요':'네 장의 순간을 채워주세요';
-  $('download').innerHTML=(two?'두컷 사진 저장하기':'네컷 사진 저장하기')+' <span>↓</span>';
+  $('download').innerHTML=(two?'두컷 사진 저장하기':'사진 저장하기')+' <span>↓</span>';
   $('download-note').textContent=`사진 ${boxes.length}장을 채우면 고해상도 JPG 또는 PNG로 저장할 수 있어요.`;
   canvas.setAttribute('aria-label',two?'완성될 와이드 두컷 사진 미리보기':'완성될 네컷 사진 미리보기');
   document.querySelector('.preview-panel').setAttribute('aria-label',two?'두컷 미리보기':'네컷 미리보기');
@@ -688,7 +691,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.2');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.3');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();

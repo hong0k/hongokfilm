@@ -96,5 +96,6 @@ header,main{position:relative}
 .language-guide mark strong{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
 /* Highlight colour per theme: a soft tint of each theme's accent, cream for Cyworld. */
 :root{--guide-mark:color-mix(in srgb,var(--accent) 20%,transparent);--guide-mark-ink:var(--text-main)}
-:root[data-theme="simple"]{--guide-mark:#ececec;--guide-mark-ink:#171717}
+:root[data-theme="simple"]{--guide-mark:#f2f2f2;--guide-mark-ink:#171717}
 :root[data-theme="cyworld"]{--guide-mark:#fff0c6;--guide-mark-ink:#51484b}
+.language-guide .guide-note{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}

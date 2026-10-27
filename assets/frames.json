@@ -91,7 +91,7 @@
       ],
       "pose_sets": {
         "basic": [
-          "assets/characters/han/basic/01-repaired.webp",
+          "assets/characters/han/basic/한성운(4)-실버.webp",
           "assets/characters/han/basic/한성운-흑발-누끼-02.webp",
           "assets/characters/han/basic/한성운-흑발-누끼-03.webp",
           "assets/characters/han/basic/04-repaired.webp"
@@ -104,7 +104,7 @@
         ],
         "miniroom": [
           "assets/characters/han/basic/01-repaired.webp",
-          "assets/characters/han/basic/한성운-흑발-누끼-02.webp"
+          "assets/characters/han/basic/한성운(3)-실버.webp"
         ]
       }
     }
