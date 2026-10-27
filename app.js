@@ -24,15 +24,15 @@ function requestAsset(path){
   if(!path)return Promise.resolve(null);
   if(assets.has(path))return Promise.resolve(assets.get(path));
   if(assetLoads.has(path))return assetLoads.get(path);
-  failedAssets.delete(path);
+  const attempts=(failedAssets.get(path)?.attempts??0)+1;failedAssets.delete(path);
   const load=imageFrom(new URL(path,document.baseURI).href)
     .then(image=>{assets.set(path,image);return image;})
-    .catch(()=>{failedAssets.set(path,Date.now());status('일부 이미지를 불러오지 못해 다시 시도하고 있어요. 계속되면 페이지를 새로고침해주세요.');setTimeout(()=>{scheduleDraw();if(!$('gallery-view').hidden)renderGallery();},3200);return null;})
+    .catch(()=>{failedAssets.set(path,{time:Date.now(),attempts});status('일부 이미지를 불러오지 못해 다시 시도하고 있어요. 계속되면 페이지를 새로고침해주세요.');if(attempts<3)setTimeout(()=>{scheduleDraw();if(!$('gallery-view').hidden)renderGallery();},3200);return null;})
     .finally(()=>{assetLoads.delete(path);scheduleDraw();if(!$('gallery-view').hidden)renderGallery();});
   assetLoads.set(path,load);return load;
 }
 // A failed image is retried on the next redraw a few seconds later (e.g. after a brief network drop).
-function asset(path){if(!path)return undefined;const image=assets.get(path);if(!image&&Date.now()-(failedAssets.get(path)??0)>3000)requestAsset(path);return image;}
+function asset(path){if(!path)return undefined;const image=assets.get(path);const failed=failedAssets.get(path);if(!image&&(!failed||(failed.attempts<3&&Date.now()-failed.time>3000)))requestAsset(path);return image;}
 // Large uploads are reduced once; output is 1200px wide, so 2400px keeps full detail and saves phone memory.
 function fitUpload(image,max=2400){
   const w=image.naturalWidth,h=image.naturalHeight,scale=Math.min(1,max/Math.max(w,h));
