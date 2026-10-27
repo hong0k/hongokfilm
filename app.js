@@ -296,7 +296,7 @@ function drawSilhouette(c,b,side,label,spot){
   c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
   c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
   c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
-  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;c.fillText(label,cx,b.y+b.h-Math.max(28,r*.65));
+  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;c.fillText(label,cx,spot?.peek?archTop+half*.55:b.y+b.h-Math.max(28,r*.65));
   c.restore();c.textBaseline='alphabetic';
 }
 // Every character pose sits differently, so the "내 사진" figure is placed where the drawn
@@ -318,22 +318,29 @@ function photoSilhouetteSpot(b,index){
   const alpha=mc.getImageData(0,0,mw,mh).data,solid=[];
   for(let y=0;y<mh;y++)for(let x=0;x<mw;x++)if(alpha[(y*mw+x)*4+3]>40)solid.push([(x+.5)/k,(y+.5)/k]);
   const preferred=b.w*(frame==='miniroom'?.25:.27),pad=12;
-  let best=null;
-  for(const scale of [1,.9,.8,.7,.6,.5]){
-    const g0=silhouetteGeometry(local,0,scale),half=g0.half;
-    for(let cx=half+10;cx<=b.w-half-10;cx+=6){
-      const g=silhouetteGeometry(local,cx,scale);let hits=0;
-      for(const [px,py] of solid){
-        const head=Math.hypot(px-cx,py-g.headY)<g.r+pad;
-        const bodyY=g.archTop+g.half*.9;
-        const body=py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1);
-        if(head||body){hits++;if(best&&hits>=best.hits)break;}
+  // peek=true only checks the head and top of the body: the figure stands behind the
+  // character, whose artwork covers its lower half, and the label moves up under the head.
+  const search=(scales,peek)=>{
+    let best=null;
+    for(const scale of scales){
+      const half=silhouetteGeometry(local,0,scale).half;
+      for(let cx=half+10;cx<=b.w-half-10;cx+=6){
+        const g=silhouetteGeometry(local,cx,scale),bodyY=g.archTop+g.half*.9,limit=peek?g.archTop+g.half*1.1:Infinity;let hits=0;
+        for(const [px,py] of solid){
+          if(py>limit)continue;
+          const head=Math.hypot(px-cx,py-g.headY)<g.r+pad;
+          const body=py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1);
+          if(head||body){hits++;if(best&&hits>=best.hits)break;}
+        }
+        const distance=Math.abs(cx-preferred);
+        if(!best||hits<best.hits||(hits===best.hits&&distance<best.distance))best={cx,scale,hits,distance,peek};
       }
-      const candidate={cx,scale,hits,distance:Math.abs(cx-preferred)};
-      if(!best||hits<best.hits||(hits===best.hits&&hits===0&&scale===best.scale&&candidate.distance<best.distance))best=candidate;
+      if(best?.hits===0)return best;
     }
-    if(best?.hits===0)break;
-  }
+    return best;
+  };
+  let best=search([1,.9,.8,.7,.6],false);
+  if(best.hits>0){const peek=search([1,.9,.8,.7],true);if(peek.hits===0)best=peek;}
   silhouetteSpots.set(key,best);return best;
 }
 function draw(forExport=false) {
