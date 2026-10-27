@@ -281,9 +281,10 @@ function drawMiniroomDetails(){
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
-// Neutral grey photo-booth backdrop shared by the three Halloween themes (sampled from the reference photo).
-const halloweenSlot={lime:'#8e8e8e',pumpkin:'#8e8e8e',pink:'#8e8e8e'};
-// Photo-booth backdrop for Halloween slots: soft light in the middle plus film grain like a real backdrop (about 4%).
+// Backdrops taken from each theme's poster reference, lifted slightly so the slot reads against the frame:
+// lime = violet-black, pumpkin = deep oxblood, pink = plum charcoal.
+const halloweenSlot={lime:'#16141c',pumpkin:'#240b07',pink:'#261820'};
+// Photo-booth backdrop for Halloween slots: soft light in the middle plus a faint print grain (about 1.5%).
 // The grain uses a fixed seed, so the preview and the saved image are identical.
 let grainTile;
 function grainPattern(c){
@@ -291,7 +292,7 @@ function grainPattern(c){
     grainTile=document.createElement('canvas');grainTile.width=grainTile.height=160;
     const g=grainTile.getContext('2d'),img=g.createImageData(160,160);let seed=20261028;
     const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*34);}
+    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*10);}
     g.putImageData(img,0,0);
   }
   return c.createPattern(grainTile,'repeat');
@@ -304,7 +305,7 @@ function drawBackdrop(c,b,color){
   c.translate(b.x,b.y);c.fillStyle=grainPattern(c);c.fillRect(0,0,b.w,b.h);c.restore();
 }
 // Photo-silhouette colours: grey on light slots, soft white on the dark Halloween slots.
-const photoGuide=()=>frame==='halloween'?{fill:'#ffffff1f',line:'#ffffffc0',ink:'#ffffffeb'}:{fill:'#00000012',line:'#8f8a8c',ink:'#7d777a'};
+const photoGuide=()=>frame==='halloween'?{fill:'#ffffff12',line:'#ffffff80',ink:'#ffffffc0'}:{fill:'#00000012',line:'#8f8a8c',ink:'#7d777a'};
 function silhouetteGeometry(b,cx,scale=1){
   const wide=frame==='miniroom',half=Math.min(b.w*.5*.42,b.h*(wide?.25:.2))*scale;
   const archTop=b.y+b.h-b.h*(wide?.5:.42)*scale,r=half*.55,headY=archTop-r*1.35;
