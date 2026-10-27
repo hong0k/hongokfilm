@@ -164,7 +164,7 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   const cover=Math.max(width/image.naturalWidth,b.h/image.naturalHeight),scale=cover*zoom;
   const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
   c.save();c.beginPath();c.rect(b.x+width,b.y,width,b.h);c.clip();
-  const focus=hanHalloween?({1:.5,2:.36,3:.44}[index]):undefined;
+  const focus=hanHalloween?({0:.57,1:.5,2:.36,3:.44}[index]):undefined;
   const offset=focus===undefined?(width-w)/2:Math.max(width-w,Math.min(0,width/2-w*focus));
   if(zoom<1){
     const fill=blurredFill(image,width,b.h,image.naturalWidth*cover,focus??.5);
