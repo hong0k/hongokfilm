@@ -281,9 +281,9 @@ function drawMiniroomDetails(){
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
-// Exact background colours of each theme's poster reference (no lift, no lighting):
-// lime = violet-black, pumpkin = deep oxblood, pink = plum black.
-const halloweenSlot={lime:'#0e0c11',pumpkin:'#210502',pink:'#211018'};
+// Near-black slots at the brightness of the poster reference (#0e0c11), tinted per theme:
+// lime = green-black, pumpkin = brown-black, pink = plum-black.
+const halloweenSlot={lime:'#0e120c',pumpkin:'#150e0a',pink:'#150c12'};
 // Halloween slot backdrop: the flat reference colour with a faint print grain (about 1%).
 // The grain uses a fixed seed, so the preview and the saved image are identical.
 let grainTile;
