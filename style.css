@@ -92,6 +92,5 @@ header,main{position:relative}
 /* Guide emphasis: button names in the accent colour, key actions in bold, essential notes highlighted. */
 .language-guide b{color:var(--text-main);font-weight:700}
 .language-guide strong{color:var(--accent);font-weight:700}
-.language-guide mark{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--text-main);padding:1px 3px;border-radius:3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-.language-guide mark strong{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
-:root:not([data-theme=simple]):not([data-theme=cyworld]) .language-guide mark{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.language-guide mark{background:#fff0c6;color:#3b3225;padding:1px 3px;border-radius:3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.language-guide mark strong{color:#3b3225;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
