@@ -8,7 +8,7 @@ const activePhotos=()=>photos.slice(0,boxes.length);
 const photos = Array(4).fill(null);
 const customPoses = Array(4).fill(null);
 let selected = 0, mode = 'together', frame = 'basic', basicStyle = 'white', character = 0, config, stream, facing = 'user', busy = false, cameraVersion = 0, captureVersion = 0;
-const assets = new Map(), assetLoads = new Map(), failedAssets = new Set();
+const assets = new Map(), assetLoads = new Map(), failedAssets = new Map();
 const status = (message) => { $('status').textContent = message; };
 function imageFrom(url) { return new Promise((resolve,reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('이미지를 불러오지 못했어요.')); image.src = url; }); }
 function cover(image,w,h) { return Math.max(w/image.naturalWidth,h/image.naturalHeight); }
@@ -27,11 +27,12 @@ function requestAsset(path){
   failedAssets.delete(path);
   const load=imageFrom(new URL(path,document.baseURI).href)
     .then(image=>{assets.set(path,image);return image;})
-    .catch(()=>{failedAssets.add(path);status('일부 이미지를 불러오지 못했어요. 페이지를 새로고침해주세요.');return null;})
+    .catch(()=>{failedAssets.set(path,Date.now());status('일부 이미지를 불러오지 못해 다시 시도하고 있어요. 계속되면 페이지를 새로고침해주세요.');setTimeout(()=>{scheduleDraw();if(!$('gallery-view').hidden)renderGallery();},3200);return null;})
     .finally(()=>{assetLoads.delete(path);scheduleDraw();if(!$('gallery-view').hidden)renderGallery();});
   assetLoads.set(path,load);return load;
 }
-function asset(path){if(!path)return undefined;const image=assets.get(path);if(!image&&!failedAssets.has(path))requestAsset(path);return image;}
+// A failed image is retried on the next redraw a few seconds later (e.g. after a brief network drop).
+function asset(path){if(!path)return undefined;const image=assets.get(path);if(!image&&Date.now()-(failedAssets.get(path)??0)>3000)requestAsset(path);return image;}
 // Large uploads are reduced once; output is 1200px wide, so 2400px keeps full detail and saves phone memory.
 function fitUpload(image,max=2400){
   const w=image.naturalWidth,h=image.naturalHeight,scale=Math.min(1,max/Math.max(w,h));
@@ -626,7 +627,9 @@ function renderGallery(){
   const background=basic?null:asset(config?.backgrounds?.halloween?.[style]);
   const needed=[...paths.slice(0,4),...(basic?[]:[config?.backgrounds?.halloween?.[style]]),...(style==='pink'?[config?.decoration_sources?.pink]:[])].filter(Boolean);
   const ready=paths.length>=4&&needed.every(path=>assets.has(path));
+  const failed=needed.some(path=>failedAssets.has(path));
   $('gallery-download').disabled=!ready;$('gallery-loading').hidden=ready||!paths.length;
+  $('gallery-loading').textContent=failed?'일부 사진을 불러오지 못했어요. 캐릭터를 다시 눌러주세요.':'사진을 불러오는 중이에요…';
   c.fillStyle=basic?basicPalettes[style].paper:'#201521';c.fillRect(0,0,1200,1560);
   if(!basic&&background)c.drawImage(background,0,0,1200,1560);
   if(style==='pink')drawPinkDecorations(c);
