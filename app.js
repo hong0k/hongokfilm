@@ -78,7 +78,9 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   const scale=Math.max(width/image.naturalWidth,b.h/image.naturalHeight);
   const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
   c.save();c.beginPath();c.rect(b.x+width,b.y,width,b.h);c.clip();
-  c.drawImage(image,b.x+width+(width-w)/2,b.y,w,h);c.restore();
+  const focus=frame==='halloween'&&config?.characters[character]?.id==='han'?({2:.30,3:.44}[index]):undefined;
+  const offset=focus===undefined?(width-w)/2:Math.max(width-w,Math.min(0,width/2-w*focus));
+  c.drawImage(image,b.x+width+offset,b.y,w,h);c.restore();
 }
 function updateCharacterUI(){
   const custom=character==='custom';
@@ -460,7 +462,7 @@ $('repeat-character').onclick=()=>{
 async function init(){
   try{await document.fonts.load('29px "Hongok Hand"');}catch{}
   try{
-    const response=await fetch('./assets/frames.json?v=20261027.4');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261027.5');if(!response.ok)throw new Error('config');config=await response.json();
     const paths=[...config.characters.flatMap(c=>[...c.poses,...Object.values(c.pose_sets??{}).flat()]),...Object.values(config.overlays),...Object.values(config.decoration_sources??{}),...Object.values(config.backgrounds??{}).flatMap(value=>value&&typeof value==='object'?Object.values(value):[value])].filter(Boolean);
     await Promise.all([...new Set(paths)].map(async path=>{try{assets.set(path,await imageFrom(new URL(path,document.baseURI).href));}catch{status('일부 프레임을 불러오지 못해 임시 디자인을 표시해요.');}}));
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
@@ -523,10 +525,15 @@ function renderGallery(){
   fourBoxes.forEach((box,i)=>{
     c.fillStyle=basic?basicPalettes[style].slot:'#e9e1dc';c.fillRect(box.x,box.y,box.w,box.h);
     const image=assets.get(paths[i]);if(!image)return;
-    const scale=cover(image,box.w,box.h),w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+    // Collection framing is independent of the together-photo focus settings.
+    const rotate=galleryCharacter==='han'&&i===1;
+    const scale=rotate?Math.max(box.w/image.naturalHeight,box.h/image.naturalWidth):cover(image,box.w,box.h);
+    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
     if(style==='mono')c.filter='grayscale(1)';
-    c.drawImage(image,box.x+(box.w-w)/2,box.y,w,h);c.restore();
+    if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
+    else c.drawImage(image,box.x+(box.w-w)/2,box.y,w,h);
+    c.restore();
   });
   c.textAlign='center';c.fillStyle=basic?basicPalettes[style].muted:({lime:'#c8bacd',pumpkin:'#d5b6a3',pink:'#cdbcc3'}[style]);
   c.font='26px sans-serif';c.fillText(galleryEntry()?.name??'',600,1470);
