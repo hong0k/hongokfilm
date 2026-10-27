@@ -281,10 +281,10 @@ function drawMiniroomDetails(){
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
-// Backdrops taken from each theme's poster reference, lifted slightly so the slot reads against the frame:
-// lime = violet-black, pumpkin = deep oxblood, pink = plum charcoal.
-const halloweenSlot={lime:'#16141c',pumpkin:'#240b07',pink:'#261820'};
-// Photo-booth backdrop for Halloween slots: soft light in the middle plus a faint print grain (about 1.5%).
+// Exact background colours of each theme's poster reference (no lift, no lighting):
+// lime = violet-black, pumpkin = deep oxblood, pink = plum black.
+const halloweenSlot={lime:'#0e0c11',pumpkin:'#210502',pink:'#211018'};
+// Halloween slot backdrop: the flat reference colour with a faint print grain (about 1%).
 // The grain uses a fixed seed, so the preview and the saved image are identical.
 let grainTile;
 function grainPattern(c){
@@ -292,16 +292,13 @@ function grainPattern(c){
     grainTile=document.createElement('canvas');grainTile.width=grainTile.height=160;
     const g=grainTile.getContext('2d'),img=g.createImageData(160,160);let seed=20261028;
     const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*10);}
+    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*6);}
     g.putImageData(img,0,0);
   }
   return c.createPattern(grainTile,'repeat');
 }
 function drawBackdrop(c,b,color){
   c.save();c.fillStyle=color;c.fillRect(b.x,b.y,b.w,b.h);
-  const light=c.createRadialGradient(b.x+b.w*.5,b.y+b.h*.42,b.w*.05,b.x+b.w*.5,b.y+b.h*.45,Math.max(b.w,b.h)*.75);
-  light.addColorStop(0,'#ffffff1f');light.addColorStop(.6,'#ffffff08');light.addColorStop(1,'#00000026');
-  c.fillStyle=light;c.fillRect(b.x,b.y,b.w,b.h);
   c.translate(b.x,b.y);c.fillStyle=grainPattern(c);c.fillRect(0,0,b.w,b.h);c.restore();
 }
 // Photo-silhouette colours: grey on light slots, soft white on the dark Halloween slots.
