@@ -281,7 +281,8 @@ function drawMiniroomDetails(){
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
-const halloweenSlot={lime:'#372e32',pumpkin:'#372e32',pink:'#372e32'};
+// Charcoal backdrops with only a hint of each theme: olive for lime, warm for pumpkin, rose for pink.
+const halloweenSlot={lime:'#30322c',pumpkin:'#352f2c',pink:'#372e32'};
 // Photo-booth backdrop for Halloween slots: soft light in the middle plus about 4% grain.
 // The grain uses a fixed seed, so the preview and the saved image are identical.
 let grainTile;
