@@ -134,11 +134,12 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='han'){
     // Wide frame: black-hair Han on the left of the top slot, silver Han on the right of the bottom slot.
-    const left=index===0;
-    const scale=Math.min(b.w*.5/image.naturalWidth,b.h*.96/image.naturalHeight);
-    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+    // Both are upper-body close-ups: only the head-to-waist band of each artwork is drawn, filling the
+    // slot height, so the artwork's own bottom cut never shows inside the slot.
+    const left=index===0,band=left?1120:900,sh=Math.min(band,image.naturalHeight);
+    const scale=b.h*.98/sh,w=image.naturalWidth*scale,h=sh*scale;
     c.save();c.beginPath();c.rect(left?b.x:b.x+b.w/2,b.y,b.w/2,b.h);c.clip();
-    c.drawImage(image,b.x+b.w*(left?.25:.75)-w/2,b.y+b.h-h,w,h);c.restore();return;
+    c.drawImage(image,0,0,image.naturalWidth,sh,b.x+b.w*(left?.25:.75)-w/2,b.y+b.h-h,w,h);c.restore();return;
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='min'){
     const left=index===1;
