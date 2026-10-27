@@ -100,3 +100,31 @@ header,main{position:relative}
 :root[data-theme="cyworld"]{--guide-mark:#fff0c6;--guide-mark-ink:#51484b}
 .language-guide .guide-note{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}
 .language-guide summary b{font-weight:700;color:var(--text-main)}.language-guide summary .guide-langs{margin-left:6px;color:var(--text-muted);font-size:.95em}
+
+/* Slot picker in the editor: which photo/character the controls below change. */
+.slot-picker-row{display:flex;align-items:center;gap:12px;margin:2px 0 8px}.slot-picker-row .label{margin:0;white-space:nowrap}
+.slot-picker{display:flex;gap:8px;flex-wrap:wrap}
+.slot-pick{position:relative;min-width:44px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text-main);font-size:14px;font-weight:700}
+.slot-pick.active{background:var(--accent);border-color:var(--accent);color:var(--page-bg)}
+[data-theme="simple"] .slot-pick.active{color:#fff}[data-theme="cyworld"] .slot-pick.active{color:#fffaf8}
+.slot-pick.filled::after{content:'';position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}
+.slot-picker-hint{margin:0 0 14px!important;font-size:11px}
+
+/* Easier own-character flow: numbered steps and a two-button "what moves" toggle. */
+.custom-steps{margin:10px 0 14px;padding-left:20px;font-size:12px;line-height:1.8;color:var(--text-muted)}.custom-steps b{color:var(--text-main)}
+.layer-row{display:flex;align-items:center;gap:12px;margin:0 0 12px}.layer-row .label{margin:0;white-space:nowrap}
+.layer-toggle{display:flex;gap:8px;flex-wrap:wrap}
+.layer-pick{min-height:40px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text-main);font-size:13px;font-weight:700}
+.layer-pick.active{background:var(--accent);border-color:var(--accent);color:var(--page-bg)}
+[data-theme="simple"] .layer-pick.active{color:#fff}[data-theme="cyworld"] .layer-pick.active{color:#fffaf8}
+.slot-picker-row .label,.layer-row .label{min-width:64px}
+
+/* Merged own-character card: uploads, progress and the editor in one place. */
+#custom-panel .actions .button{font-size:13px}
+.custom-links{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 2px}.custom-links .text-button{cursor:pointer}
+.custom-progress{margin:6px 0 0!important;font-weight:700;color:var(--text-main)!important}
+#main-editor.merged{margin:16px 0 0;padding:16px 0 0;border:0;border-top:1px dashed var(--border);border-radius:0;background:none}
+.actions+label[for="caption"]{margin-top:24px}
+.custom-camera{width:100%;margin-top:10px}
+#custom-panel{margin-top:4px}
+.gallery-images{align-items:start}

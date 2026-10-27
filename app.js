@@ -168,17 +168,40 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   c.drawImage(image,b.x+width+offset,b.y,w,h);c.restore();
 }
 
+// With my own character, the editor joins the character card so uploading and adjusting both
+// happen in one place; otherwise it goes back under the photo buttons.
+const editorHome={parent:null,next:null};
+// The character card itself moves under step 02, so steps read in order and the photo buttons
+// are not shown twice.
+const panelHome={parent:null,next:null};
+function placeCustomPanel(merged){
+  const panel=$('custom-panel'),anchor=$('photo-step-title')?.closest('.step')?.nextElementSibling,photoActions=$('open-camera').parentElement;
+  if(!panel||!anchor)return;
+  if(!panelHome.parent){panelHome.parent=panel.parentElement;panelHome.next=panel.nextElementSibling;}
+  if(merged&&panel.previousElementSibling!==anchor)anchor.after(panel);
+  if(!merged&&panel.parentElement!==panelHome.parent)panelHome.parent.insertBefore(panel,panelHome.next);
+  photoActions.hidden=merged;
+}
+function placeEditor(merged){
+  placeCustomPanel(merged);
+  const editor=$('main-editor');if(!editor)return;
+  if(!editorHome.parent){editorHome.parent=editor.parentElement;editorHome.next=editor.nextElementSibling;}
+  if(merged&&editor.parentElement!==$('custom-panel'))$('custom-panel').append(editor);
+  if(!merged&&editor.parentElement!==editorHome.parent)editorHome.parent.insertBefore(editor,editorHome.next);
+  editor.classList.toggle('merged',merged);
+}
 function updateCharacterUI(){
   const custom=character==='custom';
   $('custom-character').setAttribute('aria-pressed',String(custom));
   $('library-character').setAttribute('aria-pressed',String(!custom));
   $('characters').hidden=custom;
   $('custom-panel').hidden=!custom;
+  placeEditor(custom&&mode==='together');
   $('wide-fit-label').hidden=frame!=='miniroom';
   $('edit-layer-label').hidden=!custom||mode!=='together';
   if(!custom||mode!=='together')$('edit-layer').value='photo';
   [...$('characters').children].forEach((b,j)=>{b.classList.toggle('active',j===character);b.setAttribute('aria-pressed',String(j===character));});
-  $('custom-progress').textContent=`캐릭터 ${customPoses.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸 · 선택한 칸 ${selected+1}`;
+  $('custom-progress').textContent=`캐릭터 ${customPoses.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸 · 사진 ${photos.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸`;
   $('repeat-character').disabled=!customPoses[selected];
 }
 // Keep original artwork untouched. Isolate the existing bright corner ornaments
@@ -477,17 +500,52 @@ function draw(forExport=false) {
   $('asset-status').hidden=ready;
   if($('camera-dialog').open)renderCameraCharacter();
 }
+// Numbered buttons that pick which slot the editor controls. A filled slot shows a small dot.
+function renderSlotPicker(isCharacter){
+  const picker=$('slot-picker');if(!picker)return;
+  if(picker.children.length!==boxes.length){
+    picker.replaceChildren(...boxes.map((_,i)=>{const button=document.createElement('button');button.type='button';button.className='slot-pick';button.textContent=String(i+1);button.onclick=()=>select(i);return button;}));
+  }
+  [...picker.children].forEach((button,i)=>{
+    const active=i===selected,filled=Boolean(isCharacter?customPoses[i]:photos[i]);
+    button.classList.toggle('active',active);button.classList.toggle('filled',filled);button.setAttribute('aria-pressed',String(active));
+    button.setAttribute('aria-label',`${i+1}번째 칸${filled?(isCharacter?' · 캐릭터 있음':' · 사진 있음'):' · 비어 있음'}`);
+  });
+}
 function select(index) {
   selected=index;updateCharacterUI();
   document.querySelectorAll('.slot').forEach((el,i)=>{el.classList.toggle('active',i===index);el.setAttribute('aria-pressed',String(i===index));});
   const item=editable(), isCharacter=$('edit-layer').value==='character';
   $('selected-label').textContent=`${index+1}번째 ${isCharacter?'캐릭터':'사진'}`;
+  renderSlotPicker(isCharacter);
+  $('layer-photo').setAttribute('aria-pressed',String(!isCharacter));$('layer-character').setAttribute('aria-pressed',String(isCharacter));
+  $('layer-photo').classList.toggle('active',!isCharacter);$('layer-character').classList.toggle('active',isCharacter);
+  document.querySelector('.slot-picker-hint').textContent=character==='custom'&&mode==='together'?'미리보기에서 사진이나 캐릭터를 직접 잡으면 그쪽이 움직여요. 번호로 칸을 바꿀 수도 있어요.':'번호를 누르거나 미리보기에서 칸을 눌러 바꿀 수 있어요.';
   $('remove').textContent=isCharacter?'이 캐릭터 지우기':'이 사진 지우기';
   $('zoom').min='0.3';$('zoom').disabled=!item;$('zoom').value=item?.zoom??1;
   $('zoom-value').textContent=Math.round(Number($('zoom').value)*100)+'%';
   $('mirror').checked=item?.mirror??false;$('mirror').disabled=!item;$('remove').disabled=!item;updateCameraLabel();
 }
 
+// With my own character, whatever the finger lands on is what moves: the character where its
+// pixels are, the photo everywhere else (if that slot has one).
+function pickLayerAt(index,clientX,clientY){
+  if(character!=='custom'||mode!=='together')return;
+  const pose=customPoses[index],photo=photos[index];if(!pose&&!photo)return;
+  let layer=pose?'character':'photo';
+  if(pose&&photo){
+    const rect=canvas.getBoundingClientRect(),transform=getComputedStyle(canvas.parentElement).transform;
+    const m=transform&&transform!=='none'?new DOMMatrix(transform):null,tilt=m?Math.atan2(m.b,m.a):0,scale=1200/(canvas.offsetWidth||rect.width);
+    const dx=clientX-(rect.left+rect.width/2),dy=clientY-(rect.top+rect.height/2);
+    const x=600+(dx*Math.cos(tilt)+dy*Math.sin(tilt))*scale,y=780+(-dx*Math.sin(tilt)+dy*Math.cos(tilt))*scale;
+    const b=boxes[index],probe=document.createElement('canvas');probe.width=Math.ceil(b.w);probe.height=Math.ceil(b.h);
+    const pc=probe.getContext('2d',{willReadFrequently:true});drawCustomPose(pose,{x:0,y:0,w:b.w,h:b.h},pc);
+    const px=Math.round(x-b.x),py=Math.round(y-b.y);
+    const hit=px>=0&&py>=0&&px<probe.width&&py<probe.height&&pc.getImageData(px,py,1,1).data[3]>40;
+    layer=hit?'character':'photo';
+  }
+  if($('edit-layer').value!==layer){$('edit-layer').value=layer;select(index);}
+}
 function buildSlots(){
   const container=$('slots');container.replaceChildren();
   const pointers=new Map();let gesture,suppressClickUntil=0;
@@ -509,7 +567,7 @@ function buildSlots(){
     container.append(el);
   });
   container.onpointerdown=(e)=>{
-    if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;select(Number(slot.dataset.slot));}
+    if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;const index=Number(slot.dataset.slot);select(index);pickLayerAt(index,e.clientX,e.clientY);}
     if(!editable())return;
     // Capture starts only once the finger moves, so a plain tap still reaches the slot as a click.
     e.preventDefault();
@@ -577,7 +635,7 @@ function updateLayoutCopy(){
   const two=boxes.length===2;
   $('character-upload-note').innerHTML=`투명 PNG를 추천해요. 일반 이미지는 배경까지 표시됩니다.<br>1장을 올리면 ${two?'두':'네'} 칸에 적용하고, 여러 장은 순서대로 넣어요.`;
   $('photo-step-title').textContent=two?'두 장의 순간을 채워주세요':'네 장의 순간을 채워주세요';
-  $('download').innerHTML=(two?'두컷 사진 저장하기':'사진 저장하기')+' <span>↓</span>';
+  $('download').innerHTML='사진 저장하기 <span>↓</span>';
   $('download-note').textContent=`사진 ${boxes.length}장을 채우면 고해상도 JPG 또는 PNG로 저장할 수 있어요.`;
   canvas.setAttribute('aria-label',two?'완성될 와이드 두컷 사진 미리보기':'완성될 네컷 사진 미리보기');
   document.querySelector('.preview-panel').setAttribute('aria-label',two?'두컷 미리보기':'네컷 미리보기');
@@ -677,6 +735,9 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&$('camera-
 $('library-character').onclick=()=>{if(character==='custom')character=0;updateCharacterUI();select(selected);draw();};
 $('custom-character').onclick=()=>{character='custom';$('edit-layer').value='character';updateCharacterUI();select(selected);draw();};
 $('edit-layer').onchange=()=>select(selected);
+$('custom-camera').onclick=()=>$('open-camera').click();
+$('layer-photo').onclick=()=>{$('edit-layer').value='photo';select(selected);};
+$('layer-character').onclick=()=>{$('edit-layer').value='character';select(selected);};
 async function uploadCharacter(event,singleSlot){
   const files=[...event.target.files];if(!files.length)return;
   busy=true;draw();let failed=0,loaded=0;
@@ -703,7 +764,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.6');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.10');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
@@ -746,8 +807,19 @@ function updateGallery(){
     const img=document.createElement('img');img.src=path;img.alt=`${entry.name} 할로윈 포즈 ${i+1}`;img.loading='lazy';
     const link=document.createElement('a');link.href=path;link.download=`${entry.id}-halloween-${String(i+1).padStart(2,'0')}.${path.split('?')[0].split('.').pop()}`;link.textContent=`${String(i+1).padStart(2,'0')} · 원본 저장 ↓`;
     card.append(img,link);$('gallery-images').append(card);
+    // Han's second original is stored sideways: the card and its download are turned 90° to the right.
+    if(entry.id==='han'&&i===1)rotatedOriginal(path).then(url=>{if(!url||galleryCharacter!=='han')return;img.src=url;link.href=url;}).catch(()=>{});
   });
   renderGallery();
+}
+const rotatedUrls=new Map();
+async function rotatedOriginal(path){
+  if(rotatedUrls.has(path))return rotatedUrls.get(path);
+  const image=await requestAsset(path);if(!image)return null;
+  const c=document.createElement('canvas');c.width=image.naturalHeight;c.height=image.naturalWidth;
+  const x=c.getContext('2d');x.translate(c.width,0);x.rotate(Math.PI/2);x.drawImage(image,0,0);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.95));if(!blob)return null;
+  const url=URL.createObjectURL(blob);rotatedUrls.set(path,url);return url;
 }
 function renderGallery(){
   if($('gallery-view').hidden)return;
@@ -757,6 +829,7 @@ function renderGallery(){
   const needed=[...paths.slice(0,4),...(basic?[]:[config?.backgrounds?.halloween?.[style]]),...(style==='pink'?[config?.decoration_sources?.pink]:[])].filter(Boolean);
   const ready=paths.length>=4&&needed.every(path=>assets.has(path));
   const failed=needed.some(path=>failedAssets.has(path));
+  $('gallery-download').textContent=`${galleryEntry()?.name??'캐릭터'} 저장하기 ↓`;
   $('gallery-download').disabled=!ready;$('gallery-loading').hidden=ready||!paths.length;
   $('gallery-loading').textContent=failed?'일부 사진을 불러오지 못했어요. 캐릭터를 다시 눌러주세요.':'사진을 불러오는 중이에요…';
   c.fillStyle=basic?basicPalettes[style].paper:'#201521';c.fillRect(0,0,1200,1560);
@@ -769,14 +842,14 @@ function renderGallery(){
     c.fillStyle=basic?basicPalettes[style].slot:'#e9e1dc';c.fillRect(box.x,box.y,box.w,box.h);
     const image=filtered(asset(paths[i]),style==='mono'?{key:'gray',gray:true}:null);if(!image)return;
     // Collection framing is independent of the together-photo focus settings.
-    const rotate=galleryCharacter==='han'&&i===1;
+    const rotate=false; // Han's second collection photo is shown upright like the original.
     const scale=rotate?Math.max(box.w/image.naturalHeight,box.h/image.naturalWidth):cover(image,box.w,box.h);
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
     if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
     else{
       // Collection-only horizontal focus so each face sits in the middle of its slot.
-      const focus=galleryCharacter==='han'?({2:.33}[i]):undefined;
+      const focus=galleryCharacter==='han'?({1:.5,2:.33}[i]):undefined;
       const x=focus===undefined?(box.w-w)/2:Math.max(box.w-w,Math.min(0,box.w/2-w*focus));
       c.drawImage(image,box.x+x,box.y,w,h);
     }
