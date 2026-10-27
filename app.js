@@ -127,7 +127,10 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
     c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
     const x=left?b.x:b.x+b.w-w;
     const transparentInset=!wide&&index===0?198*scale:0;
-    c.drawImage(image,sx,sy,sw,sh,x-transparentInset,b.y+b.h-h,w,h);c.restore();return;
+    // Pose 4's artwork ends in a slanted cut (bottom 773–805px). Hide that cut below the slot edge
+    // while keeping the same size, so no empty strip shows under the torso.
+    const visible=poseIndex===3?726:sh,vh=visible*scale;
+    c.drawImage(image,sx,sy,sw,visible,x-transparentInset,b.y+b.h-vh,w,vh);c.restore();return;
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='han'){
     const scale=Math.min(b.w*.5/image.naturalWidth,b.h*.96/image.naturalHeight);
@@ -327,7 +330,7 @@ function draw(forExport=false) {
         else {ctx.fillStyle='#766782';ctx.font='18px sans-serif';ctx.fillText('내 캐릭터를 올려주세요',b.x+b.w*.73,b.y+b.h-30);}
       } else
       if(pose) {drawRegisteredPose(filtered(pose,spec),b,ctx,i);}
-      else if(posePath&&!failedAssets.has(posePath)) {ctx.fillStyle='#84758b';ctx.font='18px sans-serif';ctx.fillText('캐릭터 불러오는 중…',b.x+b.w*.75,b.y+b.h-30);}
+      else if(posePath) {ctx.fillStyle='#84758b';ctx.font='18px sans-serif';ctx.fillText(failedAssets.has(posePath)?'캐릭터를 불러오지 못했어요 · 새로고침해주세요':'캐릭터 불러오는 중…',b.x+b.w*(failedAssets.has(posePath)?.5:.75),b.y+b.h-30);}
       else {
         ctx.save();ctx.beginPath();ctx.rect(b.x+b.w*(frame==='miniroom'?.5:.57),b.y,b.w*(frame==='miniroom'?.5:.43),b.h);ctx.clip();
         ctx.fillStyle='#bea9ca99';ctx.fillRect(b.x+b.w*(frame==='miniroom'?.5:.57),b.y,b.w*(frame==='miniroom'?.5:.43),b.h);
