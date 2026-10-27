@@ -807,8 +807,19 @@ function updateGallery(){
     const img=document.createElement('img');img.src=path;img.alt=`${entry.name} 할로윈 포즈 ${i+1}`;img.loading='lazy';
     const link=document.createElement('a');link.href=path;link.download=`${entry.id}-halloween-${String(i+1).padStart(2,'0')}.${path.split('?')[0].split('.').pop()}`;link.textContent=`${String(i+1).padStart(2,'0')} · 원본 저장 ↓`;
     card.append(img,link);$('gallery-images').append(card);
+    // Han's second original is stored sideways: the card and its download are turned 90° to the right.
+    if(entry.id==='han'&&i===1)rotatedOriginal(path).then(url=>{if(!url||galleryCharacter!=='han')return;img.src=url;link.href=url;}).catch(()=>{});
   });
   renderGallery();
+}
+const rotatedUrls=new Map();
+async function rotatedOriginal(path){
+  if(rotatedUrls.has(path))return rotatedUrls.get(path);
+  const image=await requestAsset(path);if(!image)return null;
+  const c=document.createElement('canvas');c.width=image.naturalHeight;c.height=image.naturalWidth;
+  const x=c.getContext('2d');x.translate(c.width,0);x.rotate(Math.PI/2);x.drawImage(image,0,0);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.95));if(!blob)return null;
+  const url=URL.createObjectURL(blob);rotatedUrls.set(path,url);return url;
 }
 function renderGallery(){
   if($('gallery-view').hidden)return;
