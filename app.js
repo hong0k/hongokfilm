@@ -361,7 +361,21 @@ function photoSilhouetteSpot(b,index){
   const fontSize=Math.round(Math.max(20,Math.min(R*.5,half*.36))),labelW=fontSize*3.4;
   const clear=(x0,y0,x1,y1)=>!solid.some(([px,py])=>px>x0&&px<x1&&py>y0&&py<y1);
   let best=null;
-  for(let cx=half+10;cx<=b.w-half-10;cx+=6){
+  // Centre the figure in the empty space beside the character (measured at head-and-shoulder
+  // height), so the gap to the slot edge and to the character is even in every slot.
+  const gy=silhouetteGeometry(local,0,1),bandTop=gy.headY-gy.r,bandBottom=gy.archTop+gy.half*.6,free=new Uint8Array(Math.ceil(b.w)+1).fill(1);
+  for(const [px,py] of solid)if(py>=bandTop&&py<=bandBottom)for(let x=Math.max(0,Math.floor(px-5-pad));x<=Math.min(b.w,Math.ceil(px+5+pad));x++)free[x]=0;
+  const runs=[];for(let x=0,start=-1;x<=b.w;x++){if(free[x]&&start<0)start=x;if((!free[x]||x===Math.floor(b.w))&&start>=0){runs.push([start,x]);start=-1;}}
+  runs.sort((a,c)=>(c[1]-c[0])-(a[1]-a[0])||Math.abs((a[0]+a[1])/2-preferred)-Math.abs((c[0]+c[1])/2-preferred));
+  const run=runs[0];
+  if(run&&run[1]-run[0]>=2*R+2*pad){
+    const cx=Math.max(half+10,Math.min(b.w-half-10,(run[0]+run[1])/2)),g=silhouetteGeometry(local,cx,1),bodyY=g.archTop+g.half*.9;
+    if(!solid.some(([px,py])=>Math.hypot(px-cx,py-g.headY)<g.r+pad)){
+      const body=solid.some(([px,py])=>py>=g.archTop-pad&&Math.abs(px-cx)<=g.half+pad&&(py>=bodyY||((px-cx)/(g.half+pad))**2+((py-bodyY)/(g.half*.9+pad))**2<=1));
+      best={cx,scale:1,peek:body};
+    }
+  }
+  if(!best)for(let cx=half+10;cx<=b.w-half-10;cx+=6){
     const g=silhouetteGeometry(local,cx,1),bodyY=g.archTop+g.half*.9;
     if(solid.some(([px,py])=>Math.hypot(px-cx,py-g.headY)<g.r+pad))continue;
     let body=0;
