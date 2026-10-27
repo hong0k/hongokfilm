@@ -831,14 +831,14 @@ function renderGallery(){
     c.fillStyle=basic?basicPalettes[style].slot:'#e9e1dc';c.fillRect(box.x,box.y,box.w,box.h);
     const image=filtered(asset(paths[i]),style==='mono'?{key:'gray',gray:true}:null);if(!image)return;
     // Collection framing is independent of the together-photo focus settings.
-    const rotate=galleryCharacter==='han'&&i===1;
+    const rotate=false; // Han's second collection photo is shown upright like the original.
     const scale=rotate?Math.max(box.w/image.naturalHeight,box.h/image.naturalWidth):cover(image,box.w,box.h);
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
     if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
     else{
       // Collection-only horizontal focus so each face sits in the middle of its slot.
-      const focus=galleryCharacter==='han'?({2:.33}[i]):undefined;
+      const focus=galleryCharacter==='han'?({1:.5,2:.33}[i]):undefined;
       const x=focus===undefined?(box.w-w)/2:Math.max(box.w-w,Math.min(0,box.w/2-w*focus));
       c.drawImage(image,box.x+x,box.y,w,h);
     }

@@ -127,3 +127,4 @@ header,main{position:relative}
 .actions+label[for="caption"]{margin-top:24px}
 .custom-camera{width:100%;margin-top:10px}
 #custom-panel{margin-top:4px}
+.gallery-images{align-items:start}
