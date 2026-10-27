@@ -178,7 +178,7 @@ function updateCharacterUI(){
   $('edit-layer-label').hidden=!custom||mode!=='together';
   if(!custom||mode!=='together')$('edit-layer').value='photo';
   [...$('characters').children].forEach((b,j)=>{b.classList.toggle('active',j===character);b.setAttribute('aria-pressed',String(j===character));});
-  $('custom-progress').textContent=`캐릭터 ${customPoses.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸 · 선택한 칸 ${selected+1}`;
+  $('custom-progress').textContent=`캐릭터 ${customPoses.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸 · 사진 ${photos.slice(0,boxes.length).filter(Boolean).length} / ${boxes.length}칸`;
   $('repeat-character').disabled=!customPoses[selected];
 }
 // Keep original artwork untouched. Isolate the existing bright corner ornaments
@@ -495,12 +495,34 @@ function select(index) {
   const item=editable(), isCharacter=$('edit-layer').value==='character';
   $('selected-label').textContent=`${index+1}번째 ${isCharacter?'캐릭터':'사진'}`;
   renderSlotPicker(isCharacter);
+  $('layer-photo').setAttribute('aria-pressed',String(!isCharacter));$('layer-character').setAttribute('aria-pressed',String(isCharacter));
+  $('layer-photo').classList.toggle('active',!isCharacter);$('layer-character').classList.toggle('active',isCharacter);
+  document.querySelector('.slot-picker-hint').textContent=character==='custom'&&mode==='together'?'미리보기에서 사진이나 캐릭터를 직접 잡으면 그쪽이 움직여요. 번호로 칸을 바꿀 수도 있어요.':'번호를 누르거나 미리보기에서 칸을 눌러 바꿀 수 있어요.';
   $('remove').textContent=isCharacter?'이 캐릭터 지우기':'이 사진 지우기';
   $('zoom').min='0.3';$('zoom').disabled=!item;$('zoom').value=item?.zoom??1;
   $('zoom-value').textContent=Math.round(Number($('zoom').value)*100)+'%';
   $('mirror').checked=item?.mirror??false;$('mirror').disabled=!item;$('remove').disabled=!item;updateCameraLabel();
 }
 
+// With my own character, whatever the finger lands on is what moves: the character where its
+// pixels are, the photo everywhere else (if that slot has one).
+function pickLayerAt(index,clientX,clientY){
+  if(character!=='custom'||mode!=='together')return;
+  const pose=customPoses[index],photo=photos[index];if(!pose&&!photo)return;
+  let layer=pose?'character':'photo';
+  if(pose&&photo){
+    const rect=canvas.getBoundingClientRect(),transform=getComputedStyle(canvas.parentElement).transform;
+    const m=transform&&transform!=='none'?new DOMMatrix(transform):null,tilt=m?Math.atan2(m.b,m.a):0,scale=1200/(canvas.offsetWidth||rect.width);
+    const dx=clientX-(rect.left+rect.width/2),dy=clientY-(rect.top+rect.height/2);
+    const x=600+(dx*Math.cos(tilt)+dy*Math.sin(tilt))*scale,y=780+(-dx*Math.sin(tilt)+dy*Math.cos(tilt))*scale;
+    const b=boxes[index],probe=document.createElement('canvas');probe.width=Math.ceil(b.w);probe.height=Math.ceil(b.h);
+    const pc=probe.getContext('2d',{willReadFrequently:true});drawCustomPose(pose,{x:0,y:0,w:b.w,h:b.h},pc);
+    const px=Math.round(x-b.x),py=Math.round(y-b.y);
+    const hit=px>=0&&py>=0&&px<probe.width&&py<probe.height&&pc.getImageData(px,py,1,1).data[3]>40;
+    layer=hit?'character':'photo';
+  }
+  if($('edit-layer').value!==layer){$('edit-layer').value=layer;select(index);}
+}
 function buildSlots(){
   const container=$('slots');container.replaceChildren();
   const pointers=new Map();let gesture,suppressClickUntil=0;
@@ -522,7 +544,7 @@ function buildSlots(){
     container.append(el);
   });
   container.onpointerdown=(e)=>{
-    if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;select(Number(slot.dataset.slot));}
+    if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;const index=Number(slot.dataset.slot);select(index);pickLayerAt(index,e.clientX,e.clientY);}
     if(!editable())return;
     // Capture starts only once the finger moves, so a plain tap still reaches the slot as a click.
     e.preventDefault();
@@ -690,6 +712,8 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&$('camera-
 $('library-character').onclick=()=>{if(character==='custom')character=0;updateCharacterUI();select(selected);draw();};
 $('custom-character').onclick=()=>{character='custom';$('edit-layer').value='character';updateCharacterUI();select(selected);draw();};
 $('edit-layer').onchange=()=>select(selected);
+$('layer-photo').onclick=()=>{$('edit-layer').value='photo';select(selected);};
+$('layer-character').onclick=()=>{$('edit-layer').value='character';select(selected);};
 async function uploadCharacter(event,singleSlot){
   const files=[...event.target.files];if(!files.length)return;
   busy=true;draw();let failed=0,loaded=0;

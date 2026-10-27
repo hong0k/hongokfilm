@@ -109,3 +109,12 @@ header,main{position:relative}
 [data-theme="simple"] .slot-pick.active{color:#fff}[data-theme="cyworld"] .slot-pick.active{color:#fffaf8}
 .slot-pick.filled::after{content:'';position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}
 .slot-picker-hint{margin:0 0 14px!important;font-size:11px}
+
+/* Easier own-character flow: numbered steps and a two-button "what moves" toggle. */
+.custom-steps{margin:10px 0 14px;padding-left:20px;font-size:12px;line-height:1.8;color:var(--text-muted)}.custom-steps b{color:var(--text-main)}
+.layer-row{display:flex;align-items:center;gap:12px;margin:0 0 12px}.layer-row .label{margin:0;white-space:nowrap}
+.layer-toggle{display:flex;gap:8px;flex-wrap:wrap}
+.layer-pick{min-height:40px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text-main);font-size:13px;font-weight:700}
+.layer-pick.active{background:var(--accent);border-color:var(--accent);color:var(--page-bg)}
+[data-theme="simple"] .layer-pick.active{color:#fff}[data-theme="cyworld"] .layer-pick.active{color:#fffaf8}
+.slot-picker-row .label,.layer-row .label{min-width:64px}
