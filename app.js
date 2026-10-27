@@ -7,7 +7,7 @@ const wideBoxes=[{x:100,y:290,w:1000,h:470},{x:100,y:840,w:1000,h:470}];
 const activePhotos=()=>photos.slice(0,boxes.length);
 const photos = Array(4).fill(null);
 const customPoses = Array(4).fill(null);
-let selected = 0, mode = 'together', frame = 'basic', basicStyle = 'white', character = 0, config, stream, facing = 'user', busy = false, cameraVersion = 0, captureVersion = 0;
+let selected = 0, mode = 'together', frame = 'basic', basicStyle = 'white', character = 'custom', config, stream, facing = 'user', busy = false, cameraVersion = 0, captureVersion = 0;
 const assets = new Map(), assetLoads = new Map(), failedAssets = new Map();
 const status = (message) => { $('status').textContent = message; };
 function imageFrom(url) { return new Promise((resolve,reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('이미지를 불러오지 못했어요.')); image.src = url; }); }
@@ -764,9 +764,10 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.11');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.12');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
+  $('edit-layer').value='character';
   select(0);draw();initGallery();
 }
 init();
