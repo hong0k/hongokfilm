@@ -77,3 +77,14 @@ header,main{position:relative}
 .slots{touch-action:none;user-select:none;-webkit-user-select:none}
 
 #camera-range{position:absolute;inset:0;pointer-events:none;border:2px solid #fff;box-shadow:inset 0 0 0 1px #0006;border-radius:8px}#camera-range span{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border-radius:6px;color:#fff;background:#0008;font-size:11px}
+
+/* Save sheet for phones and in-app browsers, loading notes, in-app notice. */
+#save-dialog{max-height:94vh;overflow:auto}#save-image{display:block;width:100%;max-height:60vh;object-fit:contain;margin:4px 0 16px;border-radius:6px;background:#0002;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.save-help{font-size:12px;line-height:1.7;color:var(--text-muted);margin:0 0 10px}.save-help span{font-size:10px}
+.inapp-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:16px 0 0;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--panel);font-size:12px;line-height:1.6;color:var(--text-main)}.inapp-banner p{margin:0}.inapp-banner span{display:block;font-size:10px;color:var(--text-muted)}.inapp-banner .text-button{white-space:nowrap;font-size:11px}
+.gallery-loading{margin:10px 0 0;text-align:center}
+/* Larger strip on wide screens, but never taller than the window so the sticky preview stays whole. */
+@media(min-width:1100px){.paper{max-width:min(420px,calc((100vh - 230px)*.77))}}
+@media(min-width:761px) and (max-height:760px){.preview-panel{padding-top:18px;padding-bottom:18px}.panel-top{margin-bottom:16px}.hint{margin-top:18px}}
+.character-sources small{text-wrap:balance}
+@media(pointer:coarse){.text-button{min-height:40px;padding:10px 8px}.creator-link{display:inline-block;padding:6px 0}}

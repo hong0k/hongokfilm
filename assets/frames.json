@@ -17,14 +17,14 @@
           "assets/characters/kim/halloween/03.jpg"
         ],
         "basic": [
-          "assets/characters/kim/basic/01.png",
-          "assets/characters/kim/basic/02.png",
-          "assets/characters/kim/basic/03.png",
-          "assets/characters/kim/basic/04.png"
+          "assets/characters/kim/basic/01.webp",
+          "assets/characters/kim/basic/02.webp",
+          "assets/characters/kim/basic/03.webp",
+          "assets/characters/kim/basic/04.webp"
         ],
         "miniroom": [
-          "assets/characters/kim/basic/01.png",
-          "assets/characters/kim/basic/04.png"
+          "assets/characters/kim/basic/01.webp",
+          "assets/characters/kim/basic/04.webp"
         ]
       }
     },
@@ -39,10 +39,10 @@
       ],
       "pose_sets": {
         "basic": [
-          "assets/characters/min/basic/01.png",
-          "assets/characters/min/basic/02.png",
-          "assets/characters/min/basic/03.png",
-          "assets/characters/min/basic/04-repaired.png"
+          "assets/characters/min/basic/01.webp",
+          "assets/characters/min/basic/02.webp",
+          "assets/characters/min/basic/03.webp",
+          "assets/characters/min/basic/04-repaired.webp"
         ],
         "halloween": [
           "assets/characters/min/halloween/01.jpg",
@@ -51,8 +51,8 @@
           "assets/characters/min/halloween/04.jpg"
         ],
         "miniroom": [
-          "assets/characters/min/basic/01.png",
-          "assets/characters/min/basic/04-repaired.png"
+          "assets/characters/min/basic/01.webp",
+          "assets/characters/min/basic/04-repaired.webp"
         ]
       }
     },
@@ -73,10 +73,10 @@
           "assets/characters/ok/halloween/04.jpg"
         ],
         "basic": [
-          "assets/characters/ok/basic/옥태석-01.png",
-          "assets/characters/ok/basic/옥태석-02.png",
-          "assets/characters/ok/basic/옥태석-03.png",
-          "assets/characters/ok/basic/옥태석-04.png"
+          "assets/characters/ok/basic/옥태석-01.webp",
+          "assets/characters/ok/basic/옥태석-02.webp",
+          "assets/characters/ok/basic/옥태석-03.webp",
+          "assets/characters/ok/basic/옥태석-04.webp"
         ]
       }
     },
@@ -91,10 +91,10 @@
       ],
       "pose_sets": {
         "basic": [
-          "assets/characters/han/basic/01-repaired.png",
-          "assets/characters/han/basic/한성운-흑발-누끼-02.png",
-          "assets/characters/han/basic/한성운-흑발-누끼-03.png",
-          "assets/characters/han/basic/04-repaired.png"
+          "assets/characters/han/basic/01-repaired.webp",
+          "assets/characters/han/basic/한성운-흑발-누끼-02.webp",
+          "assets/characters/han/basic/한성운-흑발-누끼-03.webp",
+          "assets/characters/han/basic/04-repaired.webp"
         ],
         "halloween": [
           "assets/characters/han/halloween/한성운(2)_02.jpg",
@@ -103,8 +103,8 @@
           "assets/characters/han/halloween/한성운_가로5.jpg"
         ],
         "miniroom": [
-          "assets/characters/han/basic/01-repaired.png",
-          "assets/characters/han/basic/한성운-흑발-누끼-02.png"
+          "assets/characters/han/basic/01-repaired.webp",
+          "assets/characters/han/basic/한성운-흑발-누끼-02.webp"
         ]
       }
     }
@@ -115,13 +115,13 @@
   },
   "backgrounds": {
     "halloween": {
-      "lime": "assets/background-01.png?v=20261019.6",
-      "pumpkin": "assets/background-02.png?v=20261019.7",
-      "pink": "assets/background-03.png?v=20261019.16"
+      "lime": "assets/background-01.webp",
+      "pumpkin": "assets/background-02.webp",
+      "pink": "assets/background-03.webp"
     }
   },
   "decoration_sources": {
-    "pink": "assets/pink-ornaments-source.png",
-    "cyworld_tape": "assets/decorations/cyworld/tapes/ivory-tape.png"
+    "pink": "assets/pink-ornaments-source.webp",
+    "cyworld_tape": "assets/decorations/cyworld/tapes/ivory-tape.webp"
   }
 }

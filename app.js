@@ -8,37 +8,114 @@ const activePhotos=()=>photos.slice(0,boxes.length);
 const photos = Array(4).fill(null);
 const customPoses = Array(4).fill(null);
 let selected = 0, mode = 'together', frame = 'basic', basicStyle = 'white', character = 0, config, stream, facing = 'user', busy = false, cameraVersion = 0, captureVersion = 0;
-const assets = new Map();
+const assets = new Map(), assetLoads = new Map(), failedAssets = new Map();
 const status = (message) => { $('status').textContent = message; };
 function imageFrom(url) { return new Promise((resolve,reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('이미지를 불러오지 못했어요.')); image.src = url; }); }
 function cover(image,w,h) { return Math.max(w/image.naturalWidth,h/image.naturalHeight); }
-function drawPhoto(photo,b,index) {
-  const area=b;
-  const s=cover(photo.image,area.w,area.h)*photo.zoom;
-  const iw=photo.image.naturalWidth*s,ih=photo.image.naturalHeight*s;
+// Redraws are batched to one per frame; the timer covers browsers that pause animation frames.
+let drawRequest=false,drawFrame=0,drawTimer=0;
+function scheduleDraw(){
+  if(drawRequest)return;drawRequest=true;
+  const run=()=>{if(!drawRequest)return;drawRequest=false;cancelAnimationFrame(drawFrame);clearTimeout(drawTimer);draw();};
+  drawFrame=requestAnimationFrame(run);drawTimer=setTimeout(run,100);
+}
+// Images load only when a frame or character needs them, so the first visit stays light.
+function requestAsset(path){
+  if(!path)return Promise.resolve(null);
+  if(assets.has(path))return Promise.resolve(assets.get(path));
+  if(assetLoads.has(path))return assetLoads.get(path);
+  const attempts=(failedAssets.get(path)?.attempts??0)+1;failedAssets.delete(path);
+  const load=imageFrom(new URL(path,document.baseURI).href)
+    .then(image=>{assets.set(path,image);return image;})
+    .catch(()=>{failedAssets.set(path,{time:Date.now(),attempts});status('일부 이미지를 불러오지 못해 다시 시도하고 있어요. 계속되면 페이지를 새로고침해주세요.');if(attempts<3)setTimeout(()=>{scheduleDraw();if(!$('gallery-view').hidden)renderGallery();},3200);return null;})
+    .finally(()=>{assetLoads.delete(path);scheduleDraw();if(!$('gallery-view').hidden)renderGallery();});
+  assetLoads.set(path,load);return load;
+}
+// A failed image is retried on the next redraw a few seconds later (e.g. after a brief network drop).
+function asset(path){if(!path)return undefined;const image=assets.get(path);const failed=failedAssets.get(path);if(!image&&(!failed||(failed.attempts<3&&Date.now()-failed.time>3000)))requestAsset(path);return image;}
+// Large uploads are reduced once; output is 1200px wide, so 2400px keeps full detail and saves phone memory.
+function fitUpload(image,max=2400){
+  const w=image.naturalWidth,h=image.naturalHeight,scale=Math.min(1,max/Math.max(w,h));
+  if(scale===1)return image;
+  const c=document.createElement('canvas');c.width=Math.round(w*scale);c.height=Math.round(h*scale);
+  c.getContext('2d').drawImage(image,0,0,c.width,c.height);c.naturalWidth=c.width;c.naturalHeight=c.height;return c;
+}
+// Canvas ctx.filter is off in iOS Safari, so colour effects are applied to pixels instead.
+// The same result is produced on every browser and cached per image, which also keeps dragging smooth.
+const filterCache=new WeakMap();
+function colorSpec(){
+  if(frame==='basic'&&basicStyle==='mono')return {key:'gray',gray:true};
+  if(frame==='miniroom'){const a=Math.round(Number($('softness').value)/5)*5/100;if(a>0)return {key:'soft'+a,b:1+a*.13,c:1-a*.20,s:1-a*.22};}
+  return null;
+}
+function filtered(image,spec){
+  if(!spec||!image)return image;
+  let cache=filterCache.get(image);if(!cache){cache=new Map();filterCache.set(image,cache);}
+  if(cache.has(spec.key))return cache.get(spec.key);
+  const w=image.naturalWidth,h=image.naturalHeight,out=document.createElement('canvas');out.width=w;out.height=h;
+  const c=out.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0);
+  const pixels=c.getImageData(0,0,w,h),d=pixels.data;
+  const clamp=v=>v<0?0:v>255?255:v;
+  if(spec.gray){
+    for(let i=0;i<d.length;i+=4){const l=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];d[i]=d[i+1]=d[i+2]=l;}
+  }else{
+    const s=spec.s,m=[.213+.787*s,.715-.715*s,.072-.072*s,.213-.213*s,.715+.285*s,.072-.072*s,.213-.213*s,.715-.715*s,.072+.928*s];
+    for(let i=0;i<d.length;i+=4){
+      const r=clamp((clamp(d[i]*spec.b)-127.5)*spec.c+127.5),g=clamp((clamp(d[i+1]*spec.b)-127.5)*spec.c+127.5),bl=clamp((clamp(d[i+2]*spec.b)-127.5)*spec.c+127.5);
+      d[i]=m[0]*r+m[1]*g+m[2]*bl;d[i+1]=m[3]*r+m[4]*g+m[5]*bl;d[i+2]=m[6]*r+m[7]*g+m[8]*bl;
+    }
+  }
+  c.putImageData(pixels,0,0);out.naturalWidth=w;out.naturalHeight=h;
+  if(cache.size>=3)cache.delete(cache.keys().next().value);
+  cache.set(spec.key,out);return out;
+}
+// Soft-focus for the Cyworld frame: a small down-and-up resample, which works without ctx.filter.
+let softenCanvas;
+function softenBox(c,b,amount){
+  if(amount<=0)return;
+  const factor=1+amount*.6,w=Math.max(1,Math.round(b.w/factor)),h=Math.max(1,Math.round(b.h/factor));
+  softenCanvas??=document.createElement('canvas');softenCanvas.width=w;softenCanvas.height=h;
+  const s=softenCanvas.getContext('2d');s.imageSmoothingQuality='high';s.drawImage(c.canvas,b.x,b.y,b.w,b.h,0,0,w,h);
+  c.save();c.imageSmoothingQuality='high';c.drawImage(softenCanvas,0,0,w,h,b.x,b.y,b.w,b.h);c.restore();
+}
+function drawPhoto(photo,b,index,spec) {
+  const area=b,image=filtered(photo.image,spec);
+  const s=cover(image,area.w,area.h)*photo.zoom;
+  const iw=image.naturalWidth*s,ih=image.naturalHeight*s;
   const limitX=(iw+area.w)/2-24,limitY=(ih+area.h)/2-24;
   photo.x=Math.max(-limitX,Math.min(limitX,photo.x));
   photo.y=Math.max(-limitY,Math.min(limitY,photo.y));
   ctx.save();ctx.beginPath();ctx.rect(b.x,b.y,b.w,b.h);ctx.clip();
-  ctx.translate(area.x+area.w/2+photo.x,area.y+area.h/2+photo.y);ctx.rotate(photo.rotation??0);ctx.scale(photo.mirror?-1:1,1);ctx.drawImage(photo.image,-iw/2,-ih/2,iw,ih);ctx.restore();
+  ctx.translate(area.x+area.w/2+photo.x,area.y+area.h/2+photo.y);ctx.rotate(photo.rotation??0);ctx.scale(photo.mirror?-1:1,1);ctx.drawImage(image,-iw/2,-ih/2,iw,ih);ctx.restore();
 }
 function editable(){return $('edit-layer').value==='character'&&character==='custom'&&mode==='together'?customPoses[selected]:photos[selected];}
-function drawCustomPose(pose,b,c=ctx){
-  const wide=frame==='miniroom';
+function drawCustomPose(pose,b,c=ctx,spec=null){
+  const wide=frame==='miniroom',image=filtered(pose.image,spec);
   const fillWide=wide&&$('character-fit').value==='cover';
-  const scale=(fillWide?Math.max(b.w*.5/pose.image.naturalWidth,b.h/pose.image.naturalHeight):Math.min(b.w*(wide?.5:.48)/pose.image.naturalWidth,b.h*(wide?1:.93)/pose.image.naturalHeight))*pose.zoom;
-  const w=pose.image.naturalWidth*scale,h=pose.image.naturalHeight*scale;
+  const scale=(fillWide?Math.max(b.w*.5/image.naturalWidth,b.h/image.naturalHeight):Math.min(b.w*(wide?.5:.48)/image.naturalWidth,b.h*(wide?1:.93)/image.naturalHeight))*pose.zoom;
+  const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
   c.save();c.beginPath();c.rect(wide?b.x+b.w*.5:b.x,b.y,wide?b.w*.5:b.w,b.h);c.clip();
   c.translate(b.x+b.w*(wide?.75:.76)+pose.x,(fillWide?b.y+h/2:b.y+b.h-h/2)+pose.y);c.rotate(pose.rotation??0);c.scale(pose.mirror?-1:1,1);
-  c.drawImage(pose.image,-w/2,-h/2,w,h);c.restore();
+  c.drawImage(image,-w/2,-h/2,w,h);c.restore();
 }
-function registeredPose(index){
-  if(character==='custom')return null;
-  const entry=config?.characters[character];
-  const set=entry?.pose_sets?.[frame]??entry?.pose_sets?.[frame==='halloween'?'halloween':'basic'];
-  const path=set?.length?set[index%set.length]:entry?.poses?.[index];
-  return assets.get(path);
+function registeredPosePath(index,characterIndex=character,frameName=frame){
+  if(characterIndex==='custom')return null;
+  const entry=config?.characters[characterIndex];
+  const set=entry?.pose_sets?.[frameName]??entry?.pose_sets?.[frameName==='halloween'?'halloween':'basic'];
+  return set?.length?set[index%set.length]:entry?.poses?.[index];
 }
+function registeredPose(index){return asset(registeredPosePath(index));}
+// Every image the current preview needs; saving waits until all of them are ready.
+function neededAssets(){
+  if(!config)return [];
+  const theme=document.documentElement.dataset.theme||'lime',halloweenTheme=['cyworld','simple'].includes(theme)?'pink':theme;
+  const list=[frame==='halloween'?config.backgrounds?.halloween?.[halloweenTheme]:config.backgrounds?.[frame]];
+  if(frame==='halloween'&&halloweenTheme==='pink')list.push(config.decoration_sources?.pink);
+  if(frame==='miniroom')list.push(config.decoration_sources?.cyworld_tape);
+  if(mode==='together')boxes.forEach((_,i)=>list.push(registeredPosePath(i)));
+  return list.filter(path=>path&&typeof path==='string');
+}
+const assetsReady=()=>neededAssets().every(path=>assets.has(path)||failedAssets.has(path));
 function drawRegisteredPose(image,b,c=ctx,index=selected){
   if(['basic','miniroom'].includes(frame)&&config?.characters[character]?.id==='kim'){
     const wide=frame==='miniroom',poseIndex=wide?(index===0?0:3):index;
@@ -50,7 +127,10 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
     c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
     const x=left?b.x:b.x+b.w-w;
     const transparentInset=!wide&&index===0?198*scale:0;
-    c.drawImage(image,sx,sy,sw,sh,x-transparentInset,b.y+b.h-h,w,h);c.restore();return;
+    // Pose 4's artwork ends in a slanted cut (bottom 773–805px). Hide that cut below the slot edge
+    // while keeping the same size, so no empty strip shows under the torso.
+    const visible=poseIndex===3?726:sh,vh=visible*scale;
+    c.drawImage(image,sx,sy,sw,visible,x-transparentInset,b.y+b.h-vh,w,vh);c.restore();return;
   }
   if(frame==='miniroom'&&config?.characters[character]?.id==='han'){
     const scale=Math.min(b.w*.5/image.naturalWidth,b.h*.96/image.naturalHeight);
@@ -99,7 +179,7 @@ function updateCharacterUI(){
 // from the earlier decorated source once, excluding its regenerated title/background.
 let pinkOrnaments;
 function drawPinkDecorations(c=ctx){
-  const source=assets.get(config?.decoration_sources?.pink);
+  const source=asset(config?.decoration_sources?.pink);
   if(source&&!pinkOrnaments){
     pinkOrnaments=document.createElement('canvas');
     pinkOrnaments.width=source.naturalWidth;pinkOrnaments.height=source.naturalHeight;
@@ -189,7 +269,7 @@ function drawMiniroomDetails(){
     ctx.fillText(i===0?'남푠♡마누라 – 바람피면 주거 ㅋㅋ':'우리의 이야기는 아직 진행 중。',600,b.y+b.h+40);
   });
   ctx.textAlign='center';ctx.fillStyle='#b2a3ad';ctx.font='24px "Hongok Hand",sans-serif';ctx.fillText('┌  오늘의 우리를, 오래오래 기억할게  ┘',600,1413);
-  const tape=assets.get(config?.decoration_sources?.cyworld_tape);
+  const tape=asset(config?.decoration_sources?.cyworld_tape);
   if(tape){
     for(const [x,y,angle] of [[1050,290,.18],[150,1310,.30]]){
       ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.globalAlpha=.82;
@@ -198,20 +278,35 @@ function drawMiniroomDetails(){
     }
   }
 }
+// Empty-slot guide: a dashed figure showing where the photo (grey, left) and the character
+// (purple, right) will go. Preview only; it is never part of a saved image.
+function drawSilhouette(c,b,side,label){
+  const character=side==='right',cx=b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27));
+  const wide=frame==='miniroom',half=Math.min(b.w*.5*.42,b.h*(wide?.25:.2)),archTop=b.y+b.h-b.h*(wide?.5:.42),r=half*.55,headY=archTop-r*1.35;
+  const fill=character?'#ddd3e2':'#00000012',line=character?'#6b3f73':'#8f8a8c',ink=character?'#6b3f73':'#7d777a';
+  c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
+  c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=fill;c.strokeStyle=line;
+  c.beginPath();c.arc(cx,headY,r,0,Math.PI*2);c.fill();c.stroke();
+  c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
+  c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
+  c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
+  c.font=`bold ${Math.round(Math.max(22,r*.5))}px sans-serif`;c.fillText(label,cx,b.y+b.h-Math.max(30,r*.65));
+  c.restore();c.textBaseline='alphabetic';
+}
 function draw(forExport=false) {
   ctx.fillStyle=frame==='halloween'?'#392342':basicPalettes[basicStyle].paper;ctx.fillRect(0,0,1200,1560);
   const theme=document.documentElement.dataset.theme||'lime';
   const halloweenTheme=['cyworld','simple'].includes(theme)?'pink':theme;
   const backgroundPath=frame==='halloween'?config?.backgrounds?.halloween?.[halloweenTheme]:config?.backgrounds?.[frame];
-  const background=assets.get(backgroundPath);if(background){
+  const background=asset(backgroundPath);if(background){
     ctx.drawImage(background,0,0,1200,1560);
     const assetName=backgroundPath?.split('?')[0];
-    const adjusted=['assets/background-01.png','assets/background-02.png'].includes(assetName);
+    const adjusted=['assets/background-01.webp','assets/background-02.webp'].includes(assetName);
     if(frame==='halloween'&&adjusted){
       // Map the entire decorative edge strip into each 60px gutter, with 4px inset.
       // Source art is wider than the gutter; scaling keeps complete objects visible.
       const iw=background.naturalWidth,ih=background.naturalHeight;
-      if(assetName==='assets/background-01.png'){
+      if(assetName==='assets/background-01.webp'){
         for(const x of [10,1015])ctx.drawImage(background,x/1100*iw,750/1430*ih,75/1100*iw,1,x/1100*1200,665/1430*1560,75/1100*1200,85/1430*1560);
       }
       const sy=160/1560*ih,sh=1250/1560*ih,sw=90/1100*iw;
@@ -220,13 +315,13 @@ function draw(forExport=false) {
         ctx.drawImage(background,cleanX,sy,1,sh,dx-4,160,60,1250);
         ctx.save();ctx.beginPath();ctx.rect(dx,160,52,1250);ctx.clip();
         ctx.drawImage(background,sx,sy,sw,sh,dx,160,52,1250);
-        if(assetName==='assets/background-01.png'){
+        if(assetName==='assets/background-01.webp'){
           // Remove the skulls at their generated height before placing them at Y≈800.
           ctx.drawImage(background,sx,750/1430*ih,sw,1,dx,665/1430*1560,52,85/1430*1560);
         }
         ctx.restore();
       }
-      if(assetName==='assets/background-01.png'){
+      if(assetName==='assets/background-01.webp'){
         ctx.drawImage(background,10/1100*iw,665/1430*ih,75/1100*iw,85/1430*ih,6,765,46,45);
         ctx.drawImage(background,1015/1100*iw,665/1430*ih,75/1100*iw,85/1430*ih,1148,765,46,45);
       }
@@ -235,20 +330,23 @@ function draw(forExport=false) {
   if(frame==='halloween'&&halloweenTheme==='pink')drawPinkDecorations();
   if(frame==='miniroom')drawMiniroomHeader();
   ctx.textAlign='center';ctx.fillStyle=frame==='halloween'?'#f7bf83':'#3e2e44';ctx.font='bold 32px sans-serif';if(frame==='basic')drawBasicHeader();
-  ctx.save();if(frame==='basic'&&basicStyle==='mono')ctx.filter='grayscale(1)';else if(frame==='miniroom')ctx.filter=cyworldFilter();
+  const spec=colorSpec(),softness=frame==='miniroom'?Number($('softness').value)/100:0;
+  ctx.save();
   boxes.forEach((b,i) => {
     ctx.fillStyle=frame==='halloween'?'#e5d4c7':frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);
-    if(photos[i]) drawPhoto(photos[i],b,i);
+    if(photos[i]) drawPhoto(photos[i],b,i,spec);
+    else if(mode==='together')drawSilhouette(ctx,b,'left','내 사진');
     else {ctx.fillStyle='#84758b';ctx.font='26px sans-serif';ctx.fillText(`＋ ${i+1}번째 사진`,b.x+b.w/2,b.y+b.h/2);}
     if(mode==='together') {
       ctx.save();
       if(frame==='miniroom'&&!['min','kim'].includes(config?.characters[character]?.id)){ctx.beginPath();ctx.rect(b.x+b.w/2,b.y,b.w/2,b.h);ctx.clip();}
-      const pose=registeredPose(i);
+      const posePath=registeredPosePath(i),pose=registeredPose(i);
       if(character==='custom'){
-        if(customPoses[i])drawCustomPose(customPoses[i],b);
-        else {ctx.fillStyle='#766782';ctx.font='18px sans-serif';ctx.fillText('내 캐릭터를 올려주세요',b.x+b.w*.73,b.y+b.h-30);}
+        if(customPoses[i])drawCustomPose(customPoses[i],b,ctx,spec);
+        else if(!forExport)drawSilhouette(ctx,b,'right','캐릭터');
       } else
-      if(pose) {drawRegisteredPose(pose,b,ctx,i);}
+      if(pose) {drawRegisteredPose(filtered(pose,spec),b,ctx,i);}
+      else if(posePath) {ctx.fillStyle='#84758b';ctx.font='18px sans-serif';ctx.fillText(failedAssets.has(posePath)?'캐릭터를 불러오지 못했어요 · 새로고침해주세요':'캐릭터 불러오는 중…',b.x+b.w*(failedAssets.has(posePath)?.5:.75),b.y+b.h-30);}
       else {
         ctx.save();ctx.beginPath();ctx.rect(b.x+b.w*(frame==='miniroom'?.5:.57),b.y,b.w*(frame==='miniroom'?.5:.43),b.h);ctx.clip();
         ctx.fillStyle='#bea9ca99';ctx.fillRect(b.x+b.w*(frame==='miniroom'?.5:.57),b.y,b.w*(frame==='miniroom'?.5:.43),b.h);
@@ -257,16 +355,17 @@ function draw(forExport=false) {
       }
       ctx.restore();
     }
-    if(frame==='miniroom'&&Number($('softness').value)>0){ctx.save();ctx.filter='none';ctx.globalAlpha=Number($('softness').value)/100*.10;ctx.fillStyle='#fff9f3';ctx.fillRect(b.x,b.y,b.w,b.h);ctx.restore();}
+    if(softness>0){softenBox(ctx,b,softness);ctx.save();ctx.globalAlpha=softness*.10;ctx.fillStyle='#fff9f3';ctx.fillRect(b.x,b.y,b.w,b.h);ctx.restore();}
     if(frame==='halloween') {ctx.fillStyle='#633b6c';ctx.font='26px sans-serif';ctx.fillText(['✦','☾','☾','✦'][i],b.x+b.w-24,b.y+35);}
   });
   ctx.restore();if(frame==='basic')drawBasicDetails();if(frame==='miniroom')drawMiniroomDetails();
-  const overlay=assets.get(config?.overlays[frame==='basic'?'together':frame]);if(overlay)ctx.drawImage(overlay,0,0,1200,1560);
+  const overlay=asset(config?.overlays?.[frame==='basic'?'together':frame]);if(overlay)ctx.drawImage(overlay,0,0,1200,1560);
   ctx.fillStyle=frame==='halloween'?(['cyworld','simple'].includes(theme)?'#cdbcc3':getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim()||'#f4d5b3'):frame==='miniroom'?'#8d857b':basicPalettes[basicStyle].muted;ctx.font=frame==='miniroom'?'29px "Hongok Hand",sans-serif':'24px sans-serif';
   ctx.fillText($('caption').value.trim()||(forExport===true?'':'문구를 입력해주세요. (선택사항)'),600,1470,1080);
   ctx.font='16px sans-serif';ctx.fillText('HONGOK FILM  ·  '+new Date().toLocaleDateString('ko-KR'),600,1515);
-  const count=activePhotos().filter(Boolean).length;$('progress').textContent=`${count} / ${boxes.length}`;$('download').disabled=count!==boxes.length||busy;$('share').disabled=count!==boxes.length||busy;
-  renderCameraCharacter();
+  const count=activePhotos().filter(Boolean).length,ready=assetsReady();$('progress').textContent=`${count} / ${boxes.length}`;$('download').disabled=count!==boxes.length||busy||!ready;$('share').disabled=count!==boxes.length||busy||!ready;
+  $('asset-status').hidden=ready;
+  if($('camera-dialog').open)renderCameraCharacter();
 }
 function select(index) {
   selected=index;updateCharacterUI();
@@ -286,31 +385,35 @@ function buildSlots(){
     const item=editable(),points=[...pointers.values()];
     if(!item||!points.length){gesture=null;return;}
     const a=points[0],b=points[1]??a;
-    gesture={item,x:(a.x+b.x)/2,y:(a.y+b.y)/2,distance:Math.hypot(a.x-b.x,a.y-b.y),px:item.x,py:item.y,zoom:item.zoom,rotation:item.rotation??0,angle:Math.atan2(b.y-a.y,b.x-a.x)};
+    // The paper is tilted with CSS; map finger movement back into the un-tilted canvas.
+    const transform=getComputedStyle(canvas.parentElement).transform,m=transform&&transform!=='none'?new DOMMatrix(transform):null;
+    gesture={item,x:(a.x+b.x)/2,y:(a.y+b.y)/2,distance:Math.hypot(a.x-b.x,a.y-b.y),px:item.x,py:item.y,zoom:item.zoom,rotation:item.rotation??0,angle:Math.atan2(b.y-a.y,b.x-a.x),tilt:m?Math.atan2(m.b,m.a):0,scale:1200/(canvas.offsetWidth||canvas.getBoundingClientRect().width)};
   };
   boxes.forEach((b,i)=>{
     const el=document.createElement('button');el.className='slot';el.dataset.slot=String(i);
     el.style.cssText=`left:${b.x/12}%;top:${b.y/15.6}%;width:${b.w/12}%;height:${b.h/15.6}%`;
     el.setAttribute('aria-label',`${i+1}번째 사진 불러오기 또는 선택 및 위치 조정`);el.textContent=`${i+1}번째 사진`;
-    el.onclick=()=>{if(Date.now()<suppressClickUntil)return;select(i);if(!photos[i]&&!busy){$('edit-layer').value='photo';select(i);$('upload').click();}};
+    // A tap on a slot without a photo always opens the photo picker, even while the character layer is being edited.
+    el.onclick=()=>{if(Date.now()<suppressClickUntil)return;select(i);if(!photos[i]&&!busy)$('upload').click();};
     el.onkeydown=(e)=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;select(i);if(!editable())return;e.preventDefault();editable().x+=e.key==='ArrowLeft'?-15:e.key==='ArrowRight'?15:0;editable().y+=e.key==='ArrowUp'?-15:e.key==='ArrowDown'?15:0;draw();};
     container.append(el);
   });
   container.onpointerdown=(e)=>{
     if(!pointers.size){const slot=e.target.closest('.slot');if(!slot)return;select(Number(slot.dataset.slot));}
     if(!editable())return;
-    e.preventDefault();container.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(pointers.size>1)suppressClickUntil=Date.now()+500;
+    // Capture starts only once the finger moves, so a plain tap still reaches the slot as a click.
+    e.preventDefault();
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});
+    if(pointers.size>1){suppressClickUntil=Date.now()+500;capture();}
     baseline();
   };
   container.onpointermove=(e)=>{
     if(!pointers.has(e.pointerId)||!gesture||editable()!==gesture.item)return;
-    e.preventDefault();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    e.preventDefault();const point=pointers.get(e.pointerId);point.x=e.clientX;point.y=e.clientY;
     const points=[...pointers.values()],a=points[0],b=points[1]??a;
-    const scale=1200/canvas.getBoundingClientRect().width,item=gesture.item;
-    const dx=(a.x+b.x)/2-gesture.x,dy=(a.y+b.y)/2-gesture.y;
-    if(Math.hypot(dx,dy)>3||points.length>1)suppressClickUntil=Date.now()+500;
+    const scale=gesture.scale,item=gesture.item,cos=Math.cos(gesture.tilt),sin=Math.sin(gesture.tilt);
+    const sx=(a.x+b.x)/2-gesture.x,sy=(a.y+b.y)/2-gesture.y,dx=sx*cos+sy*sin,dy=-sx*sin+sy*cos;
+    if(Math.hypot(point.x-point.startX,point.y-point.startY)>4||points.length>1){suppressClickUntil=Date.now()+500;capture();}
     item.x=gesture.px+dx*scale;item.y=gesture.py+dy*scale;
     if(points.length>1&&gesture.distance>0){
       item.zoom=Math.max(.3,Math.min(3,gesture.zoom*Math.hypot(a.x-b.x,a.y-b.y)/gesture.distance));
@@ -318,8 +421,9 @@ function buildSlots(){
       item.rotation=gesture.rotation+Math.atan2(Math.sin(angle),Math.cos(angle));
       $('zoom').value=item.zoom;$('zoom-value').textContent=Math.round(item.zoom*100)+'%';
     }
-    draw();
+    scheduleDraw();
   };
+  function capture(){for(const id of pointers.keys()){try{if(!container.hasPointerCapture(id))container.setPointerCapture(id);}catch{}}}
   const release=(e)=>{if(!pointers.delete(e.pointerId))return;baseline();};
   container.onpointerup=container.onpointercancel=container.onlostpointercapture=release;
 }
@@ -332,12 +436,12 @@ $('upload').onchange=async(e)=>{
   busy=true;draw();let loaded=0,failed=0;
   for(let j=0;j<Math.min(files.length,targets.length);j++){
     const url=URL.createObjectURL(files[j]);
-    try{const image=await imageFrom(url);setPhoto(image,targets[j]);loaded++;}catch{failed++;}finally{URL.revokeObjectURL(url);}
+    try{const image=fitUpload(await imageFrom(url));setPhoto(image,targets[j]);loaded++;}catch{failed++;}finally{URL.revokeObjectURL(url);}
   }
   busy=false;$('edit-layer').value='photo';select(selected);draw();e.target.value='';
   status(`${loaded}장의 사진을 추가했어요.${failed?' 읽을 수 없는 사진은 JPG·PNG·WebP로 변환해 다시 올려주세요.':''}${files.length>targets.length?' 빈 칸보다 많은 사진은 제외했어요.':''}`);
 };
-$('zoom').oninput=()=>{if(editable())editable().zoom=Number($('zoom').value);$('zoom-value').textContent=Math.round(Number($('zoom').value)*100)+'%';draw();};
+$('zoom').oninput=()=>{if(editable())editable().zoom=Number($('zoom').value);$('zoom-value').textContent=Math.round(Number($('zoom').value)*100)+'%';scheduleDraw();};
 $('mirror').onchange=()=>{if(editable())editable().mirror=$('mirror').checked;draw();};
 $('center').onclick=()=>{if(editable())Object.assign(editable(),{x:0,y:0,zoom:1,mirror:false,rotation:0});select(selected);draw();};
 $('remove').onclick=()=>{if($('edit-layer').value==='character')customPoses[selected]=null;else photos[selected]=null;select(selected);draw();status('선택한 이미지를 지웠어요.');};
@@ -369,17 +473,43 @@ function updateLayoutCopy(){
   document.querySelector('.preview-panel').setAttribute('aria-label',two?'두컷 미리보기':'네컷 미리보기');
 }
 $('character-fit').onchange=()=>{draw();};
-$('softness').oninput=()=>{$('softness-value').textContent=$('softness').value+'%';draw();};
+$('softness').oninput=()=>{$('softness-value').textContent=$('softness').value+'%';scheduleDraw();};
 function exportFormat(){const jpg=$('format').value==='jpg';return {extension:jpg?'jpg':'png',type:jpg?'image/jpeg':'image/png'};}
-function blob(type){
+async function blob(type){
+  // The export waits for the handwriting font and every image the frame uses.
+  if(frame==='miniroom'){try{await document.fonts.load('29px "Hongok Hand"');}catch{}}
+  await Promise.all(neededAssets().map(requestAsset));
   const output=document.createElement('canvas');output.width=canvas.width;output.height=canvas.height;
   try{draw(true);output.getContext('2d').drawImage(canvas,0,0);}finally{draw();}
   return new Promise((resolve,reject)=>output.toBlob(b=>b?resolve(b):reject(new Error('이미지를 만들지 못했어요.')),type,0.95));
 }
-$('download').onclick=async()=>{try{const format=exportFormat();const image=await blob(format.type);const url=URL.createObjectURL(image);const a=document.createElement('a');a.href=url;a.download=`plot-${frame==='basic'?basicStyle:frame}-${mode}-${Date.now()}.${format.extension}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);status(`${format.extension.toUpperCase()} 이미지 저장을 요청했어요. 모바일에서 저장이 어렵다면 이미지 공유를 이용해주세요.`);}catch{status('이미지 저장에 실패했어요. 다시 시도해주세요.');}};
+// Phones and in-app browsers (X, KakaoTalk, Instagram…) often ignore file downloads,
+// so on touch devices the finished image is also shown for long-press saving.
+const inAppBrowser=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|Twitter|BAND\/|everytimeApp|; wv\)/i.test(navigator.userAgent);
+const touchDevice=matchMedia('(pointer: coarse)').matches;
+let savedUrl,savedBlob,savedName;
+function triggerDownload(url,name){const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();}
+function saveImage(image,name,report){
+  if(savedUrl)URL.revokeObjectURL(savedUrl);
+  savedBlob=image;savedName=name;savedUrl=URL.createObjectURL(image);
+  if(!touchDevice&&!inAppBrowser){triggerDownload(savedUrl,name);report('이미지 저장을 요청했어요. 다운로드 폴더를 확인해주세요.');return;}
+  $('save-image').src=savedUrl;
+  $('save-share').hidden=!(navigator.canShare&&navigator.canShare({files:[new File([image],name,{type:image.type})]}));
+  $('save-dialog').showModal();
+  report('완성된 이미지를 길게 눌러 저장하거나, 아래 버튼을 이용해주세요.');
+}
+$('save-download').onclick=()=>{if(savedUrl)triggerDownload(savedUrl,savedName);};
+$('save-share').onclick=async()=>{try{await navigator.share({files:[new File([savedBlob],savedName,{type:savedBlob.type})]});}catch(e){if(e.name!=='AbortError')$('save-help').textContent='공유하지 못했어요. 이미지를 길게 눌러 저장해주세요.';}};
+$('save-close').onclick=()=>$('save-dialog').close();
+$('download').onclick=async()=>{
+  if($('download').disabled)return;$('download').disabled=true;
+  try{const format=exportFormat();const image=await blob(format.type);saveImage(image,`hongokfilm-${frame==='basic'?basicStyle:frame}-${mode}-${Date.now()}.${format.extension}`,status);}
+  catch{status('이미지 저장에 실패했어요. 다시 시도해주세요.');}
+  finally{draw();}
+};
 function updateShare(){const format=exportFormat();$('share').hidden=!(navigator.canShare&&navigator.canShare({files:[new File([''],`photo.${format.extension}`,{type:format.type})]}));}
 $('format').onchange=updateShare;updateShare();
-$('share').onclick=async()=>{try{const format=exportFormat();const image=await blob(format.type);await navigator.share({files:[new File([image],`plot-photo.${format.extension}`,{type:format.type})]});}catch(e){if(e.name!=='AbortError')status('공유에 실패했어요. 이미지 저장을 이용해주세요.');}};
+$('share').onclick=async()=>{try{const format=exportFormat();const image=await blob(format.type);await navigator.share({files:[new File([image],`hongokfilm-photo.${format.extension}`,{type:format.type})]});}catch(e){if(e.name!=='AbortError')status('공유에 실패했어요. 이미지 저장을 이용해주세요.');}};
 function renderCameraCharacter(){
   const preview=$('camera-character'), c=preview.getContext('2d'),box=boxes[selected];
   preview.width=box.w;preview.height=box.h;
@@ -387,7 +517,7 @@ function renderCameraCharacter(){
   c.clearRect(0,0,box.w,box.h);
   const monochrome=frame==='basic'&&basicStyle==='mono';
   const filter=monochrome?'grayscale(1)':frame==='miniroom'?cyworldFilter():'none';
-  $('video').style.filter=filter;c.filter=filter;
+  $('video').style.filter=filter;preview.style.filter=filter;
   const custom=mode==='together'&&character==='custom'&&customPoses[selected];
   const registered=mode==='together'?registeredPose(selected):null;
   preview.hidden=!custom&&!registered;
@@ -443,7 +573,7 @@ async function uploadCharacter(event,singleSlot){
   for(let i=0;i<Math.min(files.length,singleSlot?1:boxes.length);i++){
     const url=URL.createObjectURL(files[i]);
     try{
-      const image=await imageFrom(url);const pose={image,x:0,y:0,zoom:1,mirror:false,rotation:0};
+      const image=fitUpload(await imageFrom(url));const pose={image,x:0,y:0,zoom:1,mirror:false,rotation:0};
       if(!singleSlot&&files.length===1)for(let j=0;j<4;j++)customPoses[j]={...pose};
       else customPoses[singleSlot?selected:i]=pose;
       loaded++;
@@ -460,11 +590,10 @@ $('repeat-character').onclick=()=>{
   const pose=customPoses[selected];for(let i=0;i<4;i++)customPoses[i]={...pose};select(selected);draw();status('선택한 캐릭터를 모든 칸에 적용했어요.');
 };
 async function init(){
-  try{await document.fonts.load('29px "Hongok Hand"');}catch{}
+  // The handwriting font loads in the background; the preview redraws once it arrives.
+  document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261027.5');if(!response.ok)throw new Error('config');config=await response.json();
-    const paths=[...config.characters.flatMap(c=>[...c.poses,...Object.values(c.pose_sets??{}).flat()]),...Object.values(config.overlays),...Object.values(config.decoration_sources??{}),...Object.values(config.backgrounds??{}).flatMap(value=>value&&typeof value==='object'?Object.values(value):[value])].filter(Boolean);
-    await Promise.all([...new Set(paths)].map(async path=>{try{assets.set(path,await imageFrom(new URL(path,document.baseURI).href));}catch{status('일부 프레임을 불러오지 못해 임시 디자인을 표시해요.');}}));
+    const response=await fetch('./assets/frames.json?v=20261028.1');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
@@ -511,11 +640,15 @@ function updateGallery(){
   renderGallery();
 }
 function renderGallery(){
+  if($('gallery-view').hidden)return;
   const paths=galleryPaths(),target=$('gallery-result'),c=target.getContext('2d'),style=$('gallery-frame').value;
   const basic=['white','black','mono'].includes(style);
-  const background=assets.get(config?.backgrounds?.halloween?.[style]);
-  const ready=paths.length>=4&&paths.slice(0,4).every(path=>assets.has(path));
-  $('gallery-download').disabled=!ready;
+  const background=basic?null:asset(config?.backgrounds?.halloween?.[style]);
+  const needed=[...paths.slice(0,4),...(basic?[]:[config?.backgrounds?.halloween?.[style]]),...(style==='pink'?[config?.decoration_sources?.pink]:[])].filter(Boolean);
+  const ready=paths.length>=4&&needed.every(path=>assets.has(path));
+  const failed=needed.some(path=>failedAssets.has(path));
+  $('gallery-download').disabled=!ready;$('gallery-loading').hidden=ready||!paths.length;
+  $('gallery-loading').textContent=failed?'일부 사진을 불러오지 못했어요. 캐릭터를 다시 눌러주세요.':'사진을 불러오는 중이에요…';
   c.fillStyle=basic?basicPalettes[style].paper:'#201521';c.fillRect(0,0,1200,1560);
   if(!basic&&background)c.drawImage(background,0,0,1200,1560);
   if(style==='pink')drawPinkDecorations(c);
@@ -524,13 +657,12 @@ function renderGallery(){
   }
   fourBoxes.forEach((box,i)=>{
     c.fillStyle=basic?basicPalettes[style].slot:'#e9e1dc';c.fillRect(box.x,box.y,box.w,box.h);
-    const image=assets.get(paths[i]);if(!image)return;
+    const image=filtered(asset(paths[i]),style==='mono'?{key:'gray',gray:true}:null);if(!image)return;
     // Collection framing is independent of the together-photo focus settings.
     const rotate=galleryCharacter==='han'&&i===1;
     const scale=rotate?Math.max(box.w/image.naturalHeight,box.h/image.naturalWidth):cover(image,box.w,box.h);
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
-    if(style==='mono')c.filter='grayscale(1)';
     if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
     else c.drawImage(image,box.x+(box.w-w)/2,box.y,w,h);
     c.restore();
@@ -551,7 +683,11 @@ $('gallery-download').onclick=()=>{
   const jpg=$('gallery-format').value==='jpg';renderGallery();
   $('gallery-result').toBlob(blob=>{
     if(!blob){$('gallery-status').textContent='저장하지 못했어요. 다시 시도해주세요.';return;}
-    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${galleryCharacter}-halloween-four-${Date.now()}.${jpg?'jpg':'png'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
-    $('gallery-status').textContent='캐릭터 네컷 이미지 저장을 요청했어요.';
+    saveImage(blob,`hongokfilm-${galleryCharacter}-halloween-four-${Date.now()}.${jpg?'jpg':'png'}`,message=>{$('gallery-status').textContent=message;});
   },jpg?'image/jpeg':'image/png',.95);
 };
+
+if(inAppBrowser){
+  $('inapp-banner').hidden=false;
+  $('inapp-copy').onclick=async()=>{try{await navigator.clipboard.writeText(location.href.split('#')[0]);$('inapp-copy').textContent='복사됐어요 ✓';}catch{$('inapp-copy').textContent=location.href.split('?')[0];}};
+}
