@@ -477,11 +477,24 @@ function draw(forExport=false) {
   $('asset-status').hidden=ready;
   if($('camera-dialog').open)renderCameraCharacter();
 }
+// Numbered buttons that pick which slot the editor controls. A filled slot shows a small dot.
+function renderSlotPicker(isCharacter){
+  const picker=$('slot-picker');if(!picker)return;
+  if(picker.children.length!==boxes.length){
+    picker.replaceChildren(...boxes.map((_,i)=>{const button=document.createElement('button');button.type='button';button.className='slot-pick';button.textContent=String(i+1);button.onclick=()=>select(i);return button;}));
+  }
+  [...picker.children].forEach((button,i)=>{
+    const active=i===selected,filled=Boolean(isCharacter?customPoses[i]:photos[i]);
+    button.classList.toggle('active',active);button.classList.toggle('filled',filled);button.setAttribute('aria-pressed',String(active));
+    button.setAttribute('aria-label',`${i+1}번째 칸${filled?(isCharacter?' · 캐릭터 있음':' · 사진 있음'):' · 비어 있음'}`);
+  });
+}
 function select(index) {
   selected=index;updateCharacterUI();
   document.querySelectorAll('.slot').forEach((el,i)=>{el.classList.toggle('active',i===index);el.setAttribute('aria-pressed',String(i===index));});
   const item=editable(), isCharacter=$('edit-layer').value==='character';
   $('selected-label').textContent=`${index+1}번째 ${isCharacter?'캐릭터':'사진'}`;
+  renderSlotPicker(isCharacter);
   $('remove').textContent=isCharacter?'이 캐릭터 지우기':'이 사진 지우기';
   $('zoom').min='0.3';$('zoom').disabled=!item;$('zoom').value=item?.zoom??1;
   $('zoom-value').textContent=Math.round(Number($('zoom').value)*100)+'%';
@@ -703,7 +716,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.6');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.7');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();

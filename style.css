@@ -100,3 +100,12 @@ header,main{position:relative}
 :root[data-theme="cyworld"]{--guide-mark:#fff0c6;--guide-mark-ink:#51484b}
 .language-guide .guide-note{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}
 .language-guide summary b{font-weight:700;color:var(--text-main)}.language-guide summary .guide-langs{margin-left:6px;color:var(--text-muted);font-size:.95em}
+
+/* Slot picker in the editor: which photo/character the controls below change. */
+.slot-picker-row{display:flex;align-items:center;gap:12px;margin:2px 0 8px}.slot-picker-row .label{margin:0;white-space:nowrap}
+.slot-picker{display:flex;gap:8px;flex-wrap:wrap}
+.slot-pick{position:relative;min-width:44px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text-main);font-size:14px;font-weight:700}
+.slot-pick.active{background:var(--accent);border-color:var(--accent);color:var(--page-bg)}
+[data-theme="simple"] .slot-pick.active{color:#fff}[data-theme="cyworld"] .slot-pick.active{color:#fffaf8}
+.slot-pick.filled::after{content:'';position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}
+.slot-picker-hint{margin:0 0 14px!important;font-size:11px}
