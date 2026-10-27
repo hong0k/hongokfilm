@@ -286,6 +286,13 @@ function silhouetteGeometry(b,cx,scale=1){
   return {cx,half,archTop,r,headY};
 }
 function drawSilhouette(c,b,side,label,spot){
+  if(spot?.badge){
+    const x=b.x+spot.cx,y=b.y+spot.cy,r=spot.r;
+    c.save();c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle='#00000012';c.strokeStyle='#8f8a8c';
+    c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.setLineDash([]);
+    c.textAlign='center';c.textBaseline='middle';c.fillStyle='#7d777a';c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',x,y+r*.06);
+    c.font=`bold ${Math.round(Math.max(20,r*.5))}px sans-serif`;c.fillText(label,x,y+r*1.6);c.restore();c.textBaseline='alphabetic';return;
+  }
   const character=side==='right';
   const g=silhouetteGeometry(b,spot?b.x+spot.cx:b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27)),spot?.scale??1);
   const {cx,half,archTop,r,headY}=g;
@@ -340,7 +347,21 @@ function photoSilhouetteSpot(b,index){
     return best;
   };
   let best=search([1,.9,.8,.7,.6],false);
-  if(best.hits>0){const peek=search([1,.9,.8,.7],true);if(peek.hits===0)best=peek;}
+  if(best.hits>0){const peek=search([1,.9,.8,.7,.6],true);if(peek.hits===0)best=peek;}
+  if(best.hits>0){
+    // No standing room at all: fall back to a small badge (dashed head + label) in the
+    // emptiest spot, so it never sits on top of the artwork.
+    const r=Math.min(b.w,b.h)*.075,labelW=r*2.4;let badge=null;
+    for(let y=r+12;y<=b.h-r*2.2-12;y+=8)for(let x=Math.max(r,labelW/2)+12;x<=b.w-Math.max(r,labelW/2)-12;x+=8){
+      let hits=0;
+      for(const [px,py] of solid){
+        if(Math.hypot(px-x,py-y)<r+pad||(Math.abs(px-x)<labelW/2+pad&&py>y+r&&py<y+r*2.2+pad)){hits++;if(badge&&hits>=badge.hits)break;}
+      }
+      const distance=Math.hypot(x-preferred,y-b.h*.45);
+      if(!badge||hits<badge.hits||(hits===badge.hits&&distance<badge.distance))badge={badge:true,cx:x,cy:y,r,hits,distance};
+    }
+    if(badge&&badge.hits<best.hits)best=badge;
+  }
   silhouetteSpots.set(key,best);return best;
 }
 function draw(forExport=false) {
