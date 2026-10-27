@@ -168,12 +168,23 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   c.drawImage(image,b.x+width+offset,b.y,w,h);c.restore();
 }
 
+// With my own character, the editor joins the character card so uploading and adjusting both
+// happen in one place; otherwise it goes back under the photo buttons.
+const editorHome={parent:null,next:null};
+function placeEditor(merged){
+  const editor=$('main-editor');if(!editor)return;
+  if(!editorHome.parent){editorHome.parent=editor.parentElement;editorHome.next=editor.nextElementSibling;}
+  if(merged&&editor.parentElement!==$('custom-panel'))$('custom-panel').append(editor);
+  if(!merged&&editor.parentElement!==editorHome.parent)editorHome.parent.insertBefore(editor,editorHome.next);
+  editor.classList.toggle('merged',merged);
+}
 function updateCharacterUI(){
   const custom=character==='custom';
   $('custom-character').setAttribute('aria-pressed',String(custom));
   $('library-character').setAttribute('aria-pressed',String(!custom));
   $('characters').hidden=custom;
   $('custom-panel').hidden=!custom;
+  placeEditor(custom&&mode==='together');
   $('wide-fit-label').hidden=frame!=='miniroom';
   $('edit-layer-label').hidden=!custom||mode!=='together';
   if(!custom||mode!=='together')$('edit-layer').value='photo';
@@ -740,7 +751,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.7');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.8');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();

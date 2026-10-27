@@ -118,3 +118,9 @@ header,main{position:relative}
 .layer-pick.active{background:var(--accent);border-color:var(--accent);color:var(--page-bg)}
 [data-theme="simple"] .layer-pick.active{color:#fff}[data-theme="cyworld"] .layer-pick.active{color:#fffaf8}
 .slot-picker-row .label,.layer-row .label{min-width:64px}
+
+/* Merged own-character card: uploads, progress and the editor in one place. */
+#custom-panel .actions .button{font-size:13px}
+.custom-links{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 2px}.custom-links .text-button{cursor:pointer}
+.custom-progress{margin:6px 0 0!important;font-weight:700;color:var(--text-main)!important}
+#main-editor.merged{margin:16px 0 0;padding:16px 0 0;border:0;border-top:1px dashed var(--border);border-radius:0;background:none}
