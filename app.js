@@ -764,7 +764,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.10');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.11');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
