@@ -756,7 +756,12 @@ function renderGallery(){
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(box.x,box.y,box.w,box.h);c.clip();
     if(rotate){c.translate(box.x+box.w/2,box.y+box.h/2);c.rotate(Math.PI/2);c.drawImage(image,-w/2,-h/2,w,h);}
-    else c.drawImage(image,box.x+(box.w-w)/2,box.y,w,h);
+    else{
+      // Collection-only horizontal focus so each face sits in the middle of its slot.
+      const focus=galleryCharacter==='han'?({2:.33}[i]):undefined;
+      const x=focus===undefined?(box.w-w)/2:Math.max(box.w-w,Math.min(0,box.w/2-w*focus));
+      c.drawImage(image,box.x+x,box.y,w,h);
+    }
     c.restore();
   });
   c.textAlign='center';c.fillStyle=basic?basicPalettes[style].muted:({lime:'#c8bacd',pumpkin:'#d5b6a3',pink:'#cdbcc3'}[style]);
