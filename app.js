@@ -165,18 +165,34 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
   c.save();c.beginPath();c.rect(b.x+width,b.y,width,b.h);c.clip();
   const focus=hanHalloween?({1:.5,2:.36,3:.44}[index]):undefined;
-  if(zoom<1){
-    const cw=image.naturalWidth*cover,sw=Math.max(8,Math.round(width/14)),sh=Math.max(8,Math.round(b.h/14));
-    blurCanvas??=document.createElement('canvas');blurCanvas.width=sw;blurCanvas.height=sh;
-    const bc=blurCanvas.getContext('2d'),fx=focus??.5;bc.imageSmoothingQuality='high';
-    bc.drawImage(image,(width/2-cw*fx)/width*sw,0,cw/width*sw,sh);
-    c.imageSmoothingQuality='high';c.drawImage(blurCanvas,0,0,sw,sh,b.x+width,b.y,width,b.h);
-    c.fillStyle='#00000059';c.fillRect(b.x+width,b.y,width,b.h);
-  }
   const offset=focus===undefined?(width-w)/2:Math.max(width-w,Math.min(0,width/2-w*focus));
-  c.drawImage(image,b.x+width+offset,b.y,w,h);c.restore();
+  if(zoom<1){
+    const fill=blurredFill(image,width,b.h,image.naturalWidth*cover,focus??.5);
+    c.drawImage(fill,b.x+width,b.y);
+    c.drawImage(image,b.x+width+offset,b.y,w,h);
+    // Fade the artwork's bottom edge into the blurred fill so there is no hard seam.
+    const band=Math.min(80,h*.15),seam=document.createElement('canvas');seam.width=width;seam.height=band;
+    const sc=seam.getContext('2d');sc.drawImage(fill,0,h-band,width,band,0,0,width,band);
+    sc.globalCompositeOperation='destination-in';const mask=sc.createLinearGradient(0,0,0,band);mask.addColorStop(0,'rgba(0,0,0,0)');mask.addColorStop(1,'rgba(0,0,0,1)');sc.fillStyle=mask;sc.fillRect(0,0,width,band);
+    c.drawImage(seam,b.x+width,b.y+h-band);
+  }else c.drawImage(image,b.x+width+offset,b.y,w,h);
+  c.restore();
 }
-let blurCanvas;
+// Smooth blur without ctx.filter (iOS): repeated halving then step-wise enlarging.
+const blurCache=new WeakMap();
+function blurredFill(image,width,height,coverWidth,focus){
+  const key=[width,height,Math.round(coverWidth),focus].join('|');let cache=blurCache.get(image);
+  if(cache?.key===key)return cache.canvas;
+  let w=Math.round(width/2),h=Math.round(height/2),cur=document.createElement('canvas');cur.width=w;cur.height=h;
+  let cc=cur.getContext('2d');cc.imageSmoothingQuality='high';cc.drawImage(image,(width/2-coverWidth*focus)/2,0,coverWidth/2,h);
+  const steps=[];
+  while(w>12&&h>24){const n=document.createElement('canvas');n.width=Math.max(1,Math.round(w/2));n.height=Math.max(1,Math.round(h/2));const nc=n.getContext('2d');nc.imageSmoothingQuality='high';nc.drawImage(cur,0,0,n.width,n.height);steps.push(cur);cur=n;w=n.width;h=n.height;}
+  while(steps.length){const up=steps.pop(),uc=up.getContext('2d');uc.clearRect(0,0,up.width,up.height);uc.imageSmoothingQuality='high';uc.drawImage(cur,0,0,up.width,up.height);cur=up;}
+  const out=document.createElement('canvas');out.width=width;out.height=height;const oc=out.getContext('2d');oc.imageSmoothingQuality='high';oc.drawImage(cur,0,0,width,height);
+  oc.fillStyle='#0000005e';oc.fillRect(0,0,width,height);
+  blurCache.set(image,{key,canvas:out});return out;
+}
+
 function updateCharacterUI(){
   const custom=character==='custom';
   $('custom-character').setAttribute('aria-pressed',String(custom));
