@@ -281,7 +281,27 @@ function drawMiniroomDetails(){
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
-const halloweenSlot={lime:'#2b2433',pumpkin:'#2e1a12',pink:'#2f2629'};
+const halloweenSlot={lime:'#332c3a',pumpkin:'#36241c',pink:'#372e32'};
+// Photo-booth backdrop for Halloween slots: soft light in the middle plus fine grain.
+// The grain uses a fixed seed, so the preview and the saved image are identical.
+let grainTile;
+function grainPattern(c){
+  if(!grainTile){
+    grainTile=document.createElement('canvas');grainTile.width=grainTile.height=160;
+    const g=grainTile.getContext('2d'),img=g.createImageData(160,160);let seed=20261028;
+    const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*38);}
+    g.putImageData(img,0,0);
+  }
+  return c.createPattern(grainTile,'repeat');
+}
+function drawBackdrop(c,b,color){
+  c.save();c.fillStyle=color;c.fillRect(b.x,b.y,b.w,b.h);
+  const light=c.createRadialGradient(b.x+b.w*.5,b.y+b.h*.42,b.w*.05,b.x+b.w*.5,b.y+b.h*.45,Math.max(b.w,b.h)*.75);
+  light.addColorStop(0,'#ffffff1f');light.addColorStop(.6,'#ffffff08');light.addColorStop(1,'#00000026');
+  c.fillStyle=light;c.fillRect(b.x,b.y,b.w,b.h);
+  c.translate(b.x,b.y);c.fillStyle=grainPattern(c);c.fillRect(0,0,b.w,b.h);c.restore();
+}
 // Photo-silhouette colours: grey on light slots, soft white on the dark Halloween slots.
 const photoGuide=()=>frame==='halloween'?{fill:'#ffffff14',line:'#ffffff70',ink:'#ffffffb0'}:{fill:'#00000012',line:'#8f8a8c',ink:'#7d777a'};
 function silhouetteGeometry(b,cx,scale=1){
@@ -408,7 +428,8 @@ function draw(forExport=false) {
   const spec=colorSpec(),softness=frame==='miniroom'?Number($('softness').value)/100:0;
   ctx.save();
   boxes.forEach((b,i) => {
-    ctx.fillStyle=frame==='halloween'?halloweenSlot[halloweenTheme]:frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);
+    if(frame==='halloween')drawBackdrop(ctx,b,halloweenSlot[halloweenTheme]);
+    else {ctx.fillStyle=frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);}
     if(photos[i]) drawPhoto(photos[i],b,i,spec);
     else if(mode==='together')drawSilhouette(ctx,b,'left','내 사진',photoSilhouetteSpot(b,i));
     else {ctx.fillStyle='#84758b';ctx.font='26px sans-serif';ctx.fillText(`＋ ${i+1}번째 사진`,b.x+b.w/2,b.y+b.h/2);}
