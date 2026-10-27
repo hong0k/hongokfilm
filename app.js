@@ -315,11 +315,10 @@ function silhouetteGeometry(b,cx,scale=1){
   return {cx,half,archTop,r,headY};
 }
 function drawSilhouetteLabel(c,b,label,spot){
-  const g=silhouetteGeometry(b,b.x+spot.cx,1),size=Math.round(Math.max(20,Math.min(g.r*.5,g.half*.36))),y=b.y+b.h-Math.max(28,g.r*.65);
-  c.save();c.font=`bold ${size}px sans-serif`;const w=c.measureText(label).width+size*.9,h=size*1.5,dark=frame==='halloween';
-  c.fillStyle=dark?'#000000a6':'#ffffffd9';c.beginPath();c.roundRect(g.cx-w/2,y-h/2,w,h,h/2);c.fill();
-  c.strokeStyle=photoGuide().line;c.setLineDash([4,3]);c.lineWidth=1.5;c.stroke();c.setLineDash([]);
-  c.fillStyle=photoGuide().ink;c.textAlign='center';c.textBaseline='middle';c.fillText(label,g.cx,y+1);c.restore();c.textBaseline='alphabetic';
+  // Only when the character covers the whole figure: plain label on top, same look as elsewhere.
+  const g=silhouetteGeometry(b,b.x+spot.cx,1),size=Math.round(Math.max(20,Math.min(g.r*.5,g.half*.36))),y=b.y+b.h-Math.max(28,g.r*.65),dark=frame==='halloween';
+  c.save();c.font=`bold ${size}px sans-serif`;c.textAlign='center';c.textBaseline='middle';
+  c.shadowColor=dark?'#000000cc':'#ffffffe6';c.shadowBlur=6;c.fillStyle=photoGuide().ink;c.fillText(label,g.cx,y);c.fillText(label,g.cx,y);c.restore();c.textBaseline='alphabetic';
 }
 function drawSilhouette(c,b,side,label,spot){
   const character=side==='right';
@@ -332,7 +331,7 @@ function drawSilhouette(c,b,side,label,spot){
   c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
   c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
   c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
-  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;if(!spot?.labelOver)c.fillText(label,cx,b.y+b.h-Math.max(28,r*.65));
+  c.font=`bold ${Math.round(Math.max(20,Math.min(r*.5,half*.36)))}px sans-serif`;if(!spot?.labelOver)c.fillText(label,cx,b.y+(spot?.labelY??b.h-Math.max(28,r*.65)));
   c.restore();c.textBaseline='alphabetic';
 }
 // Every character pose sits differently, so the "내 사진" figure is placed where the drawn
@@ -395,8 +394,10 @@ function photoSilhouetteSpot(b,index){
   }
   // The label always sits at the bottom of the figure; where the character covers that spot it is
   // drawn on top of the character with a soft backing so it stays readable.
-  const lx0=best.cx-labelW/2-6,lx1=best.cx+labelW/2+6,ly=b.h-Math.max(28,R*.65);
-  best.labelOver=!clear(lx0,ly-fontSize,lx1,ly+fontSize);
+  // Label goes at the bottom of the figure, or on its chest when the character covers the bottom.
+  const lx0=best.cx-labelW/2-6,lx1=best.cx+labelW/2+6,gl=silhouetteGeometry(local,best.cx,1);
+  best.labelY=[b.h-Math.max(28,R*.65),gl.archTop+gl.half*.55].find(y=>clear(lx0,y-fontSize,lx1,y+fontSize));
+  best.labelOver=best.labelY===undefined;
   silhouetteSpots.set(key,best);return best;
 }
 function draw(forExport=false) {
