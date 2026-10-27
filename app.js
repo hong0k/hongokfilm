@@ -635,7 +635,7 @@ function updateLayoutCopy(){
   const two=boxes.length===2;
   $('character-upload-note').innerHTML=`투명 PNG를 추천해요. 일반 이미지는 배경까지 표시됩니다.<br>1장을 올리면 ${two?'두':'네'} 칸에 적용하고, 여러 장은 순서대로 넣어요.`;
   $('photo-step-title').textContent=two?'두 장의 순간을 채워주세요':'네 장의 순간을 채워주세요';
-  $('download').innerHTML=(two?'두컷 사진 저장하기':'사진 저장하기')+' <span>↓</span>';
+  $('download').innerHTML='사진 저장하기 <span>↓</span>';
   $('download-note').textContent=`사진 ${boxes.length}장을 채우면 고해상도 JPG 또는 PNG로 저장할 수 있어요.`;
   canvas.setAttribute('aria-label',two?'완성될 와이드 두컷 사진 미리보기':'완성될 네컷 사진 미리보기');
   document.querySelector('.preview-panel').setAttribute('aria-label',two?'두컷 미리보기':'네컷 미리보기');
@@ -764,7 +764,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.9');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.10');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
@@ -818,6 +818,7 @@ function renderGallery(){
   const needed=[...paths.slice(0,4),...(basic?[]:[config?.backgrounds?.halloween?.[style]]),...(style==='pink'?[config?.decoration_sources?.pink]:[])].filter(Boolean);
   const ready=paths.length>=4&&needed.every(path=>assets.has(path));
   const failed=needed.some(path=>failedAssets.has(path));
+  $('gallery-download').textContent=`${galleryEntry()?.name??'캐릭터'} 저장하기 ↓`;
   $('gallery-download').disabled=!ready;$('gallery-loading').hidden=ready||!paths.length;
   $('gallery-loading').textContent=failed?'일부 사진을 불러오지 못했어요. 캐릭터를 다시 눌러주세요.':'사진을 불러오는 중이에요…';
   c.fillStyle=basic?basicPalettes[style].paper:'#201521';c.fillRect(0,0,1200,1560);
