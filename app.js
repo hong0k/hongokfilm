@@ -282,7 +282,7 @@ function drawMiniroomDetails(){
 // (purple, right) will go. Preview only; it is never part of a saved image.
 function drawSilhouette(c,b,side,label){
   const character=side==='right',cx=b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27));
-  const half=Math.min(b.w*.5*.42,b.h*.2),archTop=b.y+b.h-b.h*.42,r=half*.55,headY=archTop-r*1.35;
+  const wide=frame==='miniroom',half=Math.min(b.w*.5*.42,b.h*(wide?.25:.2)),archTop=b.y+b.h-b.h*(wide?.5:.42),r=half*.55,headY=archTop-r*1.35;
   const fill=character?'#ddd3e2':'#00000012',line=character?'#6b3f73':'#8f8a8c',ink=character?'#6b3f73':'#7d777a';
   c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
   c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=fill;c.strokeStyle=line;
@@ -290,7 +290,7 @@ function drawSilhouette(c,b,side,label){
   c.beginPath();c.moveTo(cx-half,b.y+b.h+4);c.lineTo(cx-half,archTop+half*.9);c.ellipse(cx,archTop+half*.9,half,half*.9,0,Math.PI,0);c.lineTo(cx+half,b.y+b.h+4);c.fill();c.stroke();
   c.setLineDash([]);c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;
   c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',cx,headY+r*.06);
-  c.font=`bold ${Math.round(Math.max(16,r*.42))}px sans-serif`;c.fillText(label,cx,b.y+b.h-Math.max(24,r*.6));
+  c.font=`bold ${Math.round(Math.max(22,r*.5))}px sans-serif`;c.fillText(label,cx,b.y+b.h-Math.max(30,r*.65));
   c.restore();c.textBaseline='alphabetic';
 }
 function draw(forExport=false) {
