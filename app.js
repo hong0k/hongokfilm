@@ -283,7 +283,7 @@ function drawMiniroomDetails(){
 // Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
 // Charcoal backdrops with only a hint of each theme: olive for lime, warm for pumpkin, rose for pink.
 const halloweenSlot={lime:'#30322c',pumpkin:'#352f2c',pink:'#372e32'};
-// Photo-booth backdrop for Halloween slots: soft light in the middle plus about 4% grain.
+// Photo-booth backdrop for Halloween slots: soft light in the middle plus about 1% grain.
 // The grain uses a fixed seed, so the preview and the saved image are identical.
 let grainTile;
 function grainPattern(c){
@@ -291,7 +291,7 @@ function grainPattern(c){
     grainTile=document.createElement('canvas');grainTile.width=grainTile.height=160;
     const g=grainTile.getContext('2d'),img=g.createImageData(160,160);let seed=20261028;
     const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*20);}
+    for(let i=0;i<img.data.length;i+=4){const v=rand()<.5?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=Math.round(rand()*5);}
     g.putImageData(img,0,0);
   }
   return c.createPattern(grainTile,'repeat');
