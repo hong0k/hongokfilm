@@ -565,7 +565,7 @@ function updateLayoutCopy(){
   const two=boxes.length===2;
   $('character-upload-note').innerHTML=`투명 PNG를 추천해요. 일반 이미지는 배경까지 표시됩니다.<br>1장을 올리면 ${two?'두':'네'} 칸에 적용하고, 여러 장은 순서대로 넣어요.`;
   $('photo-step-title').textContent=two?'두 장의 순간을 채워주세요':'네 장의 순간을 채워주세요';
-  $('download').innerHTML=(two?'두컷 사진 저장하기':'네컷 사진 저장하기')+' <span>↓</span>';
+  $('download').innerHTML=(two?'두컷 사진 저장하기':'사진 저장하기')+' <span>↓</span>';
   $('download-note').textContent=`사진 ${boxes.length}장을 채우면 고해상도 JPG 또는 PNG로 저장할 수 있어요.`;
   canvas.setAttribute('aria-label',two?'완성될 와이드 두컷 사진 미리보기':'완성될 네컷 사진 미리보기');
   document.querySelector('.preview-panel').setAttribute('aria-label',two?'두컷 미리보기':'네컷 미리보기');
