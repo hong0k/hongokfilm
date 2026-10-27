@@ -91,10 +91,10 @@
       ],
       "pose_sets": {
         "basic": [
-          "assets/characters/han/basic/한성운-흑발-누끼-01.png",
+          "assets/characters/han/basic/01-repaired.png",
           "assets/characters/han/basic/한성운-흑발-누끼-02.png",
           "assets/characters/han/basic/한성운-흑발-누끼-03.png",
-          "assets/characters/han/basic/한성운-흑발-누끼-04.png"
+          "assets/characters/han/basic/04-repaired.png"
         ],
         "halloween": [
           "assets/characters/han/halloween/한성운(2)_02.jpg",
@@ -103,7 +103,7 @@
           "assets/characters/han/halloween/한성운_가로5.jpg"
         ],
         "miniroom": [
-          "assets/characters/han/basic/한성운-흑발-누끼-01.png",
+          "assets/characters/han/basic/01-repaired.png",
           "assets/characters/han/basic/한성운-흑발-누끼-02.png"
         ]
       }

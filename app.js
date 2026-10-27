@@ -68,10 +68,11 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
   if((['basic','miniroom'].includes(frame)&&config?.characters[character]?.id==='min')||(frame==='basic'&&['ok','han'].includes(config?.characters[character]?.id))){
     const left=config?.characters[character]?.id==='min'&&(frame==='miniroom'?index===1:index===3);
     const height=Math.min(b.h*.90,b.w*.78*1216/1000);
-    const scale=height/image.naturalHeight;
+    const scale=config?.characters[character]?.id==='han'&&index===0?Math.min(height/image.naturalHeight,b.w*.85/image.naturalWidth):height/image.naturalHeight;
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
-    c.drawImage(image,b.x+b.w*(left?.40:.74)-w/2,b.y+b.h-h,w,h);c.restore();return;
+    const x=config?.characters[character]?.id==='han'&&index===0?b.x+b.w-w:b.x+b.w*(left?.40:.74)-w/2;
+    c.drawImage(image,x,b.y+b.h-h,w,h);c.restore();return;
   }
   const width=b.w/2;
   const scale=Math.max(width/image.naturalWidth,b.h/image.naturalHeight);
@@ -389,6 +390,7 @@ function renderCameraCharacter(){
   const registered=mode==='together'?registeredPose(selected):null;
   preview.hidden=!custom&&!registered;
   $('camera-guide').hidden=mode!=='together'||Boolean(custom||registered);
+  $('camera-range').hidden=mode!=='solo';
   if(custom)drawCustomPose(custom,{x:0,y:0,w:box.w,h:box.h},c);
   else if(registered)drawRegisteredPose(registered,{x:0,y:0,w:box.w,h:box.h},c);
 }
@@ -458,7 +460,7 @@ $('repeat-character').onclick=()=>{
 async function init(){
   try{await document.fonts.load('29px "Hongok Hand"');}catch{}
   try{
-    const response=await fetch('./assets/frames.json?v=20261027.3');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261027.4');if(!response.ok)throw new Error('config');config=await response.json();
     const paths=[...config.characters.flatMap(c=>[...c.poses,...Object.values(c.pose_sets??{}).flat()]),...Object.values(config.overlays),...Object.values(config.decoration_sources??{}),...Object.values(config.backgrounds??{}).flatMap(value=>value&&typeof value==='object'?Object.values(value):[value])].filter(Boolean);
     await Promise.all([...new Set(paths)].map(async path=>{try{assets.set(path,await imageFrom(new URL(path,document.baseURI).href));}catch{status('일부 프레임을 불러오지 못해 임시 디자인을 표시해요.');}}));
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
