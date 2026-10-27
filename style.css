@@ -125,3 +125,5 @@ header,main{position:relative}
 .custom-progress{margin:6px 0 0!important;font-weight:700;color:var(--text-main)!important}
 #main-editor.merged{margin:16px 0 0;padding:16px 0 0;border:0;border-top:1px dashed var(--border);border-radius:0;background:none}
 .actions+label[for="caption"]{margin-top:24px}
+.custom-camera{width:100%;margin-top:10px}
+#custom-panel{margin-top:4px}

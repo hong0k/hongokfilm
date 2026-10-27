@@ -171,7 +171,19 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
 // With my own character, the editor joins the character card so uploading and adjusting both
 // happen in one place; otherwise it goes back under the photo buttons.
 const editorHome={parent:null,next:null};
+// The character card itself moves under step 02, so steps read in order and the photo buttons
+// are not shown twice.
+const panelHome={parent:null,next:null};
+function placeCustomPanel(merged){
+  const panel=$('custom-panel'),anchor=$('photo-step-title')?.closest('.step')?.nextElementSibling,photoActions=$('open-camera').parentElement;
+  if(!panel||!anchor)return;
+  if(!panelHome.parent){panelHome.parent=panel.parentElement;panelHome.next=panel.nextElementSibling;}
+  if(merged&&panel.previousElementSibling!==anchor)anchor.after(panel);
+  if(!merged&&panel.parentElement!==panelHome.parent)panelHome.parent.insertBefore(panel,panelHome.next);
+  photoActions.hidden=merged;
+}
 function placeEditor(merged){
+  placeCustomPanel(merged);
   const editor=$('main-editor');if(!editor)return;
   if(!editorHome.parent){editorHome.parent=editor.parentElement;editorHome.next=editor.nextElementSibling;}
   if(merged&&editor.parentElement!==$('custom-panel'))$('custom-panel').append(editor);
@@ -723,6 +735,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&$('camera-
 $('library-character').onclick=()=>{if(character==='custom')character=0;updateCharacterUI();select(selected);draw();};
 $('custom-character').onclick=()=>{character='custom';$('edit-layer').value='character';updateCharacterUI();select(selected);draw();};
 $('edit-layer').onchange=()=>select(selected);
+$('custom-camera').onclick=()=>$('open-camera').click();
 $('layer-photo').onclick=()=>{$('edit-layer').value='photo';select(selected);};
 $('layer-character').onclick=()=>{$('edit-layer').value='character';select(selected);};
 async function uploadCharacter(event,singleSlot){
@@ -751,7 +764,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.8');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.9');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
