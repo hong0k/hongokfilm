@@ -157,14 +157,26 @@ function drawRegisteredPose(image,b,c=ctx,index=selected){
     const x=config?.characters[character]?.id==='han'&&index===0?b.x+b.w-w:b.x+b.w*(left?.40:.74)-w/2;
     c.drawImage(image,x,b.y+b.h-h,w,h);c.restore();return;
   }
-  const width=b.w/2;
-  const scale=Math.max(width/image.naturalWidth,b.h/image.naturalHeight);
+  const width=b.w/2,hanHalloween=frame==='halloween'&&config?.characters[character]?.id==='han';
+  // Han's landscape Halloween art (slots 2–4) is zoomed out so the whole head shows; the strip
+  // below the artwork is filled with a blurred, darkened copy of the same image.
+  const zoom=hanHalloween?({1:.8,2:.78,3:.8}[index]??1):1;
+  const cover=Math.max(width/image.naturalWidth,b.h/image.naturalHeight),scale=cover*zoom;
   const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
   c.save();c.beginPath();c.rect(b.x+width,b.y,width,b.h);c.clip();
-  const focus=frame==='halloween'&&config?.characters[character]?.id==='han'?({2:.30,3:.44}[index]):undefined;
+  const focus=hanHalloween?({1:.5,2:.36,3:.44}[index]):undefined;
+  if(zoom<1){
+    const cw=image.naturalWidth*cover,sw=Math.max(8,Math.round(width/14)),sh=Math.max(8,Math.round(b.h/14));
+    blurCanvas??=document.createElement('canvas');blurCanvas.width=sw;blurCanvas.height=sh;
+    const bc=blurCanvas.getContext('2d'),fx=focus??.5;bc.imageSmoothingQuality='high';
+    bc.drawImage(image,(width/2-cw*fx)/width*sw,0,cw/width*sw,sh);
+    c.imageSmoothingQuality='high';c.drawImage(blurCanvas,0,0,sw,sh,b.x+width,b.y,width,b.h);
+    c.fillStyle='#00000059';c.fillRect(b.x+width,b.y,width,b.h);
+  }
   const offset=focus===undefined?(width-w)/2:Math.max(width-w,Math.min(0,width/2-w*focus));
   c.drawImage(image,b.x+width+offset,b.y,w,h);c.restore();
 }
+let blurCanvas;
 function updateCharacterUI(){
   const custom=character==='custom';
   $('custom-character').setAttribute('aria-pressed',String(custom));
@@ -350,7 +362,9 @@ function photoSilhouetteSpot(b,index){
   try{if(custom)drawCustomPose(pose,local,mc);else drawRegisteredPose(pose,local,mc,index);}catch{return null;}
   const alpha=mc.getImageData(0,0,mw,mh).data,solid=[];
   for(let y=0;y<mh;y++)for(let x=0;x<mw;x++)if(alpha[(y*mw+x)*4+3]>40)solid.push([(x+.5)/k,(y+.5)/k]);
-  const preferred=b.w*(frame==='miniroom'?.25:.27),pad=12;
+  // Prefer the side opposite the character's mass, so the gap to the character matches every slot.
+  const massX=solid.length?solid.reduce((sum,[px])=>sum+px,0)/solid.length:b.w;
+  const preferred=b.w*(massX<b.w/2?(frame==='miniroom'?.75:.73):(frame==='miniroom'?.25:.27)),pad=12;
   // peek=true only checks the head and top of the body: the figure stands behind the
   // character, whose artwork covers its lower half, and the label moves up under the head.
   const search=(scales,peek)=>{
@@ -691,7 +705,7 @@ async function init(){
   // The handwriting font loads in the background; the preview redraws once it arrives.
   document.fonts?.load('29px "Hongok Hand"').then(scheduleDraw,()=>{});
   try{
-    const response=await fetch('./assets/frames.json?v=20261028.3');if(!response.ok)throw new Error('config');config=await response.json();
+    const response=await fetch('./assets/frames.json?v=20261028.4');if(!response.ok)throw new Error('config');config=await response.json();
     config.characters.forEach((c,i)=>{const button=document.createElement('button');button.textContent=c.name;button.classList.toggle('active',i===character);button.setAttribute('aria-pressed',String(i===character));button.onclick=()=>{character=i;updateCharacterUI();select(selected);draw();updateCameraLabel();};$('characters').append(button);});
   }catch{status('캐릭터 설정을 불러오지 못했어요. 페이지를 새로고침해주세요.');}
   select(0);draw();initGallery();
