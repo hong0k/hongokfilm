@@ -280,6 +280,10 @@ function drawMiniroomDetails(){
 }
 // Empty-slot guide: a dashed figure showing where the photo (grey) and the character (purple)
 // will go. Preview only; it is never part of a saved image.
+// Halloween slots use a solid dark colour that sits in each theme's background, instead of light beige.
+const halloweenSlot={lime:'#2b2433',pumpkin:'#2e1a12',pink:'#2f2629'};
+// Photo-silhouette colours: grey on light slots, soft white on the dark Halloween slots.
+const photoGuide=()=>frame==='halloween'?{fill:'#ffffff14',line:'#ffffff70',ink:'#ffffffb0'}:{fill:'#00000012',line:'#8f8a8c',ink:'#7d777a'};
 function silhouetteGeometry(b,cx,scale=1){
   const wide=frame==='miniroom',half=Math.min(b.w*.5*.42,b.h*(wide?.25:.2))*scale;
   const archTop=b.y+b.h-b.h*(wide?.5:.42)*scale,r=half*.55,headY=archTop-r*1.35;
@@ -288,15 +292,15 @@ function silhouetteGeometry(b,cx,scale=1){
 function drawSilhouette(c,b,side,label,spot){
   if(spot?.badge){
     const x=b.x+spot.cx,y=b.y+spot.cy,r=spot.r;
-    c.save();c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle='#00000012';c.strokeStyle='#8f8a8c';
+    const guide=photoGuide();c.save();c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=guide.fill;c.strokeStyle=guide.line;
     c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.setLineDash([]);
-    c.textAlign='center';c.textBaseline='middle';c.fillStyle='#7d777a';c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',x,y+r*.06);
+    c.textAlign='center';c.textBaseline='middle';c.fillStyle=guide.ink;c.font=`bold ${Math.round(r*1.2)}px sans-serif`;c.fillText('?',x,y+r*.06);
     c.font=`bold ${Math.round(Math.max(20,r*.5))}px sans-serif`;c.fillText(label,x,y+r*1.6);c.restore();c.textBaseline='alphabetic';return;
   }
   const character=side==='right';
   const g=silhouetteGeometry(b,spot?b.x+spot.cx:b.x+b.w*(character?(frame==='miniroom'?.75:.74):(frame==='miniroom'?.25:.27)),spot?.scale??1);
   const {cx,half,archTop,r,headY}=g;
-  const fill=character?'#ddd3e2':'#00000012',line=character?'#6b3f73':'#8f8a8c',ink=character?'#6b3f73':'#7d777a';
+  const guide=photoGuide(),fill=character?'#ddd3e2':guide.fill,line=character?'#6b3f73':guide.line,ink=character?'#6b3f73':guide.ink;
   c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();
   c.setLineDash([Math.max(4,r*.16),Math.max(3,r*.11)]);c.lineWidth=Math.max(2,r*.06);c.fillStyle=fill;c.strokeStyle=line;
   c.beginPath();c.arc(cx,headY,r,0,Math.PI*2);c.fill();c.stroke();
@@ -404,7 +408,7 @@ function draw(forExport=false) {
   const spec=colorSpec(),softness=frame==='miniroom'?Number($('softness').value)/100:0;
   ctx.save();
   boxes.forEach((b,i) => {
-    ctx.fillStyle=frame==='halloween'?'#e5d4c7':frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.fillStyle=frame==='halloween'?halloweenSlot[halloweenTheme]:frame==='miniroom'?'#F7F5F1':basicPalettes[basicStyle].slot;ctx.fillRect(b.x,b.y,b.w,b.h);
     if(photos[i]) drawPhoto(photos[i],b,i,spec);
     else if(mode==='together')drawSilhouette(ctx,b,'left','내 사진',photoSilhouetteSpot(b,i));
     else {ctx.fillStyle='#84758b';ctx.font='26px sans-serif';ctx.fillText(`＋ ${i+1}번째 사진`,b.x+b.w/2,b.y+b.h/2);}
@@ -427,7 +431,7 @@ function draw(forExport=false) {
       ctx.restore();
     }
     if(softness>0){softenBox(ctx,b,softness);ctx.save();ctx.globalAlpha=softness*.10;ctx.fillStyle='#fff9f3';ctx.fillRect(b.x,b.y,b.w,b.h);ctx.restore();}
-    if(frame==='halloween') {ctx.fillStyle='#633b6c';ctx.font='26px sans-serif';ctx.fillText(['✦','☾','☾','✦'][i],b.x+b.w-24,b.y+35);}
+    if(frame==='halloween') {ctx.fillStyle='#ffffff55';ctx.font='26px sans-serif';ctx.fillText(['✦','☾','☾','✦'][i],b.x+b.w-24,b.y+35);}
   });
   ctx.restore();if(frame==='basic')drawBasicDetails();if(frame==='miniroom')drawMiniroomDetails();
   const overlay=asset(config?.overlays?.[frame==='basic'?'together':frame]);if(overlay)ctx.drawImage(overlay,0,0,1200,1560);
